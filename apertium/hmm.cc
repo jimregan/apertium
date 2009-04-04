@@ -27,6 +27,7 @@
 #include <apertium/tagger_utils.h>
 #include <apertium/unlocked_cstdio.h>
 #include <lttoolbox/compression.h>
+#include "SmoothUtils.H"
 
 #ifdef WIN32
 #define isnan(n) _isnan(n)
@@ -134,15 +135,25 @@ HMM::write_probabilities(FILE *out)
 }  
 
 void 
-HMM::init_probabilities_kupiec (FILE *is)
+HMM::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsfile)
 {
   int N = td->getN();
   int M = td->getM();
   int i, j, k, k1, k2, nw=0;
-  double classes_ocurrences[M]; //M = Number of ambiguity classes
-  double classes_pair_ocurrences[M][M];
-  double tags_estimate[N]; //N = Number of tags (states)
-  double tags_pair_estimate[N][N];
+//  double classes_ocurrences[M]; //M = Number of ambiguity classes
+//  double classes_pair_ocurrences[M][M];
+//  double tags_estimate[N]; //N = Number of tags (states)
+//  double tags_pair_estimate[N][N];
+
+  map<int, double> classes_ocurrences; // M
+  map<int, map<int, double> > classes_pair_ocurrences; // MxM
+
+  map<int, double> tags_count; // N
+  map<int, double> tags_count_for_emis; // N
+  map<int, map<int, double> > tags_pairs; //NxN
+  map<int, map<int, double> > emis; //NxM
+
+
   Collection &output = td->getOutput();
  
   MorphoStream lexmorfo(is, true, td);
@@ -156,9 +167,10 @@ HMM::init_probabilities_kupiec (FILE *is)
   }
 
   set<TTag> tags;
+  tags.clear();
   tags.insert(eos);  
   k1=output[tags]; //The first tag (ambiguity class) seen is the end-of-sentence
-  classes_ocurrences[k]++;
+  classes_ocurrences[k1]++;
   
   //We count for each ambiguity class the number of ocurrences
   word = lexmorfo.get_next_word();
@@ -188,22 +200,30 @@ HMM::init_probabilities_kupiec (FILE *is)
 
     k1=k2;
 
-  }  
+    if((corpus_length>0)&&(nw>=corpus_length)&&(tags.size()==1)&&((*(tags.begin()))==eos)) {
+      //En of training
+      cerr<<nw<<" ";
+      break;
+    }
+  }
 
   //Estimation of the number of time each tags occurs in the training text
   for(i=0; i<N; i++) {  
-    tags_estimate[i]=0;
+    //tags_estimate[i]=0;
+    tags_count_for_emis[i]=0;
     for(k=0; k<M;  k++) { 
-  
-      if(output[k].find(i) != output[k].end())
-        tags_estimate[i] += classes_ocurrences[k]/output[k].size();	
+        if(output[k].find(i) != output[k].end())
+        //tags_estimate[i] += classes_ocurrences[k]/output[k].size();	
+        tags_count_for_emis[i] += classes_ocurrences[k]/((double)output[k].size());
     }
   }
-  
+
+ 
   //Estimation of the number of times each tag pair occurs
   for(i=0; i<N; i++)
     for(j=0; j<N; j++)
-      tags_pair_estimate[i][j]=0;
+      //tags_pair_estimate[i][j]=0;
+     tags_pairs[i][j]=0;
 
   set<TTag> tags1, tags2;
   set<TTag>::iterator itag1, itag2;
@@ -211,16 +231,45 @@ HMM::init_probabilities_kupiec (FILE *is)
     tags1=output[k1];
     for(k2=0; k2<M; k2++) {
       tags2=output[k2];
+      //double nocurrences=classes_pair_ocurrences[k1][k2]/((double)(tags1.size()*tags2.size()));
       double nocurrences=classes_pair_ocurrences[k1][k2]/((double)(tags1.size()*tags2.size()));
       for (itag1=tags1.begin(); itag1!=tags1.end(); itag1++) {
-        for (itag2=tags2.begin(); itag2!=tags2.end(); itag2++)
-          tags_pair_estimate[*itag1][*itag2]+=nocurrences;
+        //for (itag2=tags2.begin(); itag2!=tags2.end(); itag2++)
+          //tags_pair_estimate[*itag1][*itag2]+=nocurrences;
+	if (((*itag1)<0)||((*itag1)>=N))
+          cerr<<"Error: Tag "<<*itag1<<" out of range\n";
+        for (itag2=tags2.begin(); itag2!=tags2.end(); itag2++) {
+          if (((*itag2)<0)||((*itag2)>=N))
+            cerr<<"Error: Tag "<<*itag2<<" out of range\n";
+          tags_pairs[*itag1][*itag2]+=nocurrences;
+          tags_count[*itag1]+=nocurrences;
+	}
       }
     }
   }
 
+  //Estimation of the number of times each ambiguity class is emitted
+  //from each tag
+  for(i=0; i<N; i++) {
+    for(k=0; k<M; k++)  {
+      if (output[k].find(i)!=output[k].end()) {
+        emis[i][k]=classes_ocurrences[k]/((double)output[k].size());
+      }
+    }
+  }
+
+  if (savecountsfile!="") {
+    cerr<<"Saving counts to file '"<<savecountsfile<<"' ... "<<flush;
+    SmoothUtils::save_counts(*td, savecountsfile, tags_pairs, emis, tags_count, classes_ocurrences, tags_count_for_emis);
+    cerr<<"done.\n";
+  }
+
+  SmoothUtils::calculate_smoothed_parameters(*td, tags_count, tags_pairs, classes_ocurrences, emis, tags_count_for_emis, nw);
+  cerr<<" done\n";
+
    //a[i][j] estimation.
-  double sum;
+/* 
+ double sum;
   for(i=0; i<N; i++) {
     sum=0;
     for(j=0; j<N; j++)
@@ -234,8 +283,9 @@ HMM::init_probabilities_kupiec (FILE *is)
       }
     }
   }
-
+*/
   //b[i][k] estimation
+/*
   for(i=0; i<N; i++) {
     for(k=0; k<M; k++)  {
       if (output[k].find(i)!=output[k].end()) {
@@ -247,15 +297,22 @@ HMM::init_probabilities_kupiec (FILE *is)
     }
   }
   wcerr<<L"\n";
+*/
 }
 
 void 
-HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
+HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string savecountsfile) {
   int i, j, k, nw=0;
   int N = td->getN();
   int M = td->getM();
-  double tags_pair[N][N];
-  double emission[N][M];
+  //double tags_pair[N][N];
+  //double emission[N][M];
+
+  map<int, map<int, double> > tags_pair; //NxN
+  map<int, map<int, double> > emis;     //NxM
+  map<int, double> ambclass_count;      //M
+  map<int, double> tags_count;          //N
+  map<int, double> tags_count_for_emis; //N
   
   MorphoStream stream_tagged(ftagged, true, td);
   MorphoStream stream_untagged(funtagged, true, td);
@@ -269,13 +326,19 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
   // Init counters - each event appears at least once. 
   // Espected likelihood estimate (ELE) with a fixed initial count of 1
   for(i=0; i<N; i++) {
+    tags_count[i]=0;
+    tags_count_for_emis[i]=0;
+
     for(j=0; j<N; j++)
+      //tags_pair[i][j]=0;
       tags_pair[i][j]=0;
   }
   for(k=0; k<M; k++) {
+    ambclass_count[k]=0;
     for(i=0; i<N; i++) {
       if (output[k].find(i)!=output[k].end())
-        emission[i][k] = 0;
+        //emission[i][k] = 0;
+        emis[i][k] = 0;
     }  
   }
  
@@ -307,14 +370,17 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
 
     if (word_tagged->get_tags().size()==0) // Unknown word
       tag1 = -1;
+      //tag1=td->getTagIndex()[L"TAG_kUNDEF"];
     else if (word_tagged->get_tags().size()>1) // Ambiguous word
       wcerr<<L"Error in tagged text. An ambiguous word was found: "<<word_tagged->get_superficial_form()<<L"\n";
     else
       tag1 = *(word_tagged->get_tags()).begin();
 
 
-    if ((tag1>=0) && (tag2>=0))
+    if ((tag1>=0) && (tag2>=0)){
       tags_pair[tag2][tag1]++;
+      tags_count[tag2]++;
+    }
     
 
     if (word_untagged->get_tags().size()==0) { // Unknown word
@@ -333,15 +399,24 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
     }
 
     k=output[tags];
-    if(tag1>=0)
-      emission[tag1][k]++;
+    if(tag1>=0){
+      //emission[tag1][k]++;
+      if (output[k].find(tag1)!=output[k].end()) {
+        emis[tag1][k]++;
+        tags_count_for_emis[tag1]++;
+        ambclass_count[k]++;
+      } else {
+        cerr<<"Warning: Ambiguity class "<<k<<" is emmited from tag "<<tag1<<" but it should not\n";
+      }
+    }
                    
     delete word_tagged;
     word_tagged=stream_tagged.get_next_word();
     delete word_untagged;
     word_untagged=stream_untagged.get_next_word();       
   }
-  
+
+/*  
   
   //Estimate of a[i][j]
   for(i=0; i<N; i++) {
@@ -368,7 +443,20 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
 	(td->getB())[i][k] = (emission[i][k]+(((double)1.0)/((double)nclasses_appear)))/(times_appear+((double)1.0));
     }
    }
-  
+*/
+
+
+  SmoothUtils::calculate_smoothed_parameters(*td, tags_count, tags_pair, ambclass_count, emis, tags_count_for_emis, nw);
+
+  if (savecountsfile!="") {
+    cerr<<"Saving counts to file '"<<savecountsfile<<"' ... "<<flush;
+    SmoothUtils::save_counts(*td, savecountsfile, tags_pair, emis, tags_count, ambclass_count, tags_count_for_emis);
+    cerr<<"done.\n";
+  }
+
+  cerr<<"Number of words processed: "<<nw<<"\n";
+
+
   wcerr<<L"\n";  
 }
   
@@ -483,7 +571,7 @@ HMM::filter_ambiguity_classes(FILE *in, FILE *out) {
 }
 
 void 
-HMM::train (FILE *ftxt) {
+HMM::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   int i, j, k, t, len, nw = 0;
   TaggerWord *word=NULL;
   TTag tag; 
@@ -498,6 +586,7 @@ HMM::train (FILE *ftxt) {
   Collection &output = td->getOutput();
   
   int ndesconocidas=0;
+  map<int, double> ambclass_count;
   // alpha => forward probabilities
   // beta  => backward probabilities
   
@@ -542,6 +631,7 @@ HMM::train (FILE *ftxt) {
     }
     
     k = output[tags];    
+    ambclass_count[k]++;
     len = pending.size();
     alpha[len].clear();     
       
@@ -567,18 +657,16 @@ HMM::train (FILE *ftxt) {
       tag = *tags.begin(); 
       beta[0].clear();
       beta[0][tag] = 1;   
-      
       prob = alpha[len][tag];
-      
+      loli -= log(prob);  
       //cerr<<"prob="<<prob<<"\n";
       //cerr<<"alpha["<<len<<"]["<<tag<<"]="<<alpha[len][tag]<<"\n";
-      loli -= log(prob);  
       
       for (t=0; t<len; t++) {  // loop from T-1 to 0	
 	  pretags = pending.back();
 	  pending.pop_back();
    	  k = output[tags];
-	     beta[1-t%2].clear();
+	  beta[1-t%2].clear();
 	     for (itag=tags.begin(); itag!=tags.end(); itag++) {
 	       i=*itag;
 	       for (jtag=pretags.begin(); jtag!=pretags.end(); jtag++) {
@@ -615,6 +703,12 @@ HMM::train (FILE *ftxt) {
       pending.push_back(tags);
       alpha[0].clear();
       alpha[0][tag] = 1;
+    
+      if((corpus_length>0)&&(nw>=corpus_length)&&(tag==eos)) {
+        cerr<<nw<<" ";
+        //En of training
+        break;
+      }
     }
     
     delete word; 
@@ -627,7 +721,7 @@ HMM::train (FILE *ftxt) {
   
   int N = td->getN();
   int M = td->getM();
-  
+/* 
   //Clean previous values  
   for(i=0; i<N; i++) {
      for(j=0; j<N; j++)
@@ -711,6 +805,17 @@ HMM::train (FILE *ftxt) {
         (td->getB())[i][k]=(td->getB())[i][k]/sum;
     }
   }
+*/
+
+  if (savecountsfile!="") {
+    cerr<<"Saving counts to file '"<<savecountsfile<<"' ... "<<flush;
+    SmoothUtils::save_counts(*td, savecountsfile, xsi, phi, gamma, ambclass_count, gamma);
+    cerr<<"done.\n";
+  }
+
+  SmoothUtils::calculate_smoothed_parameters(*td, gamma, xsi, ambclass_count, phi, gamma, nw);
+
+
 
   wcerr<<L"Log="<<loli<<L"\n";
 }

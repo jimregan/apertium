@@ -131,7 +131,7 @@ public:
     *  from an untagged input text by means of Kupiec's method
     *  @param is the input stream with the untagged corpus to process
     */
-   void init_probabilities_kupiec (FILE *is);
+   void init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsfile);
   
    /** It initializes the transtion (a) and emission (b) probabilities
     *  from a tagged input text by means of the expected-likelihood 
@@ -139,7 +139,7 @@ public:
     *  @param ftagged the input stream with the tagged corpus to process
     *  @param funtagged the same corpus to process but untagged
     */   
-   void init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged);
+   void init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string savecountsfile);
 
    /** It applies the forbid and enforce rules found in tagger specification.
     *  To do so the transition matrix is modified by introducing null probabilities
@@ -150,7 +150,7 @@ public:
    /** Unsupervised training algorithm (Baum-Welch implementation).
     *  @param is the input stream with the untagged corpus to process
     */  
-   void train (FILE *is);  
+   void train (FILE *is, int corpus_length, string savecountsfile);  
   
    /** Tagging algorithm (Viterbi implementation).
     *  @param in the input stream with the untagged text to tag

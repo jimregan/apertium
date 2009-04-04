@@ -18,7 +18,7 @@
  */
 /** PoS tagger main program.
  *
- *  @author Felipe Sánchez-Martínez - fsanchez@dlsi.ua.es
+ *  @author Felipe SÃ¡nchez-MartÃ­nez - fsanchez@dlsi.ua.es
  */
 
 #include <apertium/tagger.h>
@@ -79,6 +79,8 @@ Tagger::getMode(int argc, char *argv[])
       {"train",      required_argument, 0, 't'},
       {"supervised", required_argument, 0, 's'},
       {"retrain",    required_argument, 0, 'r'},
+      {"clength",    required_argument, 0, 'l'},
+      {"savecounts", required_argument, 0, 'z'},
       {"tagger",     no_argument,       0, 'g'},
       {"show-superficial",     no_argument,       0, 'p'},
       {"eval",       no_argument,       0, 'e'},
@@ -89,15 +91,30 @@ Tagger::getMode(int argc, char *argv[])
       {0, 0, 0, 0}
     };
 
-    c=getopt_long(argc, argv, "mdt:s:r:gpefh",long_options, &option_index);
+    c=getopt_long(argc, argv, "z:l:mdt:s:r:gpefh",long_options, &option_index);
 #else
-    c=getopt(argc, argv, "mdt:s:r:gpefh");
+    c=getopt(argc, argv, "z:l:mdt:s:r:gpefh");
 #endif
     if (c==-1)
       break;
       
     switch (c)
     {
+      case 'l':
+	corpus_length=atoi(optarg);
+        wcerr<<L"Experimental feature: corpus-length specified "<<corpus_length<<"\n";
+	if(corpus_length<=0) {
+        cerr<<"Error: corpus length provided with --clength must be a positive integer\n";
+        help();
+        exit(EXIT_FAILURE);
+        }
+              
+        break;
+
+      case 'z':
+      savecountsfile=optarg;
+      break;
+
       case 'm':
 	TaggerWord::generate_marks = true;
         break;
@@ -285,6 +302,8 @@ Tagger::Tagger()
 void
 Tagger::main(int argc, char *argv[])
 {
+  corpus_length=-1;
+  savecountsfile="";
   name = argv[0];
   int mode = getMode(argc, argv);
 
@@ -401,7 +420,7 @@ Tagger::train()
 #ifdef WIN32
     _setmode(_fileno(fcrp), _O_U8TEXT);
 #endif 
-    hmm.init_probabilities_kupiec(fcrp);               
+    hmm.init_probabilities_kupiec(fcrp, corpus_length, savecountsfile);               
   }
   else
   {
@@ -415,7 +434,7 @@ Tagger::train()
   for(int i=0; i != nit; i++)
   {
     fseek(fcrp, 0, SEEK_SET);
-    hmm.train(fcrp);
+    hmm.train(fcrp, corpus_length, savecountsfile);
   }
   wcerr << L"Applying forbid and enforce rules...\n";
   hmm.apply_rules();
@@ -455,7 +474,7 @@ Tagger::trainSupervised()
     _setmode(_fileno(funtagged), _O_U8TEXT);
 #endif 
     wcerr << L"Initializing transition and emission probabilities from a hand-tagged corpus...\n";
-    hmm.init_probabilities_from_tagged_text(ftagged, funtagged);
+    hmm.init_probabilities_from_tagged_text(ftagged, funtagged, savecountsfile);
   }
   else
   {
@@ -477,7 +496,7 @@ Tagger::trainSupervised()
     for(int i=0; i != nit; i++)
     {
       fseek(fcrp, 0, SEEK_SET);
-      hmm.train(fcrp);
+      hmm.train(fcrp, corpus_length, savecountsfile);
     }
     wcerr << L"Applying forbid and enforce rules...\n";
     hmm.apply_rules();
@@ -521,7 +540,7 @@ Tagger::retrain()
   for(int i=0; i != nit; i++)
   {
     fseek(fcrp, 0, SEEK_SET);
-    hmm.train(fcrp);
+    hmm.train(fcrp, corpus_length, savecountsfile);
   }
   wcerr << L"Applying forbid and enforce rules...\n";
   hmm.apply_rules();

@@ -45,6 +45,9 @@ private:
             
   vector<string> filenames;
   int nit;
+  int corpus_length;
+  string savecountsfile;
+
   string name;
   bool debug;
   

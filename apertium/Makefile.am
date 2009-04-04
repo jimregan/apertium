@@ -5,7 +5,8 @@ h_sources = collection.h constant_manager.h hmm.h interchunk.h \
             transfer_data.h transfer.h transfer_instr.h transfer_token.h \
             transfer_word.h transfer_word_list.h trx_reader.h tsx_reader.h \
             ttag.h utf_converter.h apertium_re.h unlocked_cstdio.h \
-            endian_double_util.h transfer_mult.h tmx_builder.h
+            endian_double_util.h transfer_mult.h tmx_builder.h \
+	    SmoothUtils.H
 
 cc_sources = collection.cc constant_manager.cc hmm.cc interchunk.cc \
              interchunk_word.cc lextor.cc lextor_data.cc lextor_eval.cc \
@@ -14,7 +15,8 @@ cc_sources = collection.cc constant_manager.cc hmm.cc interchunk.cc \
              transfer.cc transfer_data.cc transfer_instr.cc \
              transfer_token.cc transfer_word.cc transfer_word_list.cc \
              trx_reader.cc tsx_reader.cc utf_converter.cc apertium_re.cc \
-             endian_double_util.cc transfer_mult.cc tmx_builder.cc
+             endian_double_util.cc transfer_mult.cc tmx_builder.cc \
+             SmoothUtils.C
 
 library_includedir = $(includedir)/$(GENERIC_LIBRARY_NAME)-$(GENERIC_API_VERSION)/$(GENERIC_LIBRARY_NAME)
 library_include_HEADERS = $(h_sources)
