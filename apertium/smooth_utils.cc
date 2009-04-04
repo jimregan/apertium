@@ -29,7 +29,7 @@
 #include <lttoolbox/compression.h>
 #include <apertium/endian_double_util.h>
 
-#include "SmoothUtils.H"
+#include <apertium/smooth_utils.h>
 #include <cmath>
 
 #include <apertium/utf_converter.h>

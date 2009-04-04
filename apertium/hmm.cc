@@ -27,7 +27,7 @@
 #include <apertium/tagger_utils.h>
 #include <apertium/unlocked_cstdio.h>
 #include <lttoolbox/compression.h>
-#include "SmoothUtils.H"
+#include <apertium/smooth_utils.h>
 
 #ifdef WIN32
 #define isnan(n) _isnan(n)
