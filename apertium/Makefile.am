@@ -1,4 +1,4 @@
-h_sources = collection.h constant_manager.h hmm.h interchunk.h \
+h_sources = collection.h constant_manager.h hmm.h tagger_data_trigram.h hmm2.h interchunk.h \
             interchunk_word.h lextor_data.h lextor_eval.h lextor.h \
             lextor_word.h morpho_stream.h postchunk.h string_utils.h \
             tagger_data.h tagger.h tagger_utils.h tagger_word.h \
@@ -6,9 +6,11 @@ h_sources = collection.h constant_manager.h hmm.h interchunk.h \
             transfer_word.h transfer_word_list.h trx_reader.h tsx_reader.h \
             ttag.h utf_converter.h apertium_re.h unlocked_cstdio.h \
             endian_double_util.h transfer_mult.h tmx_builder.h \
-	    smooth_utils.h
+	    smooth_utils.h smooth_utils_trigram.h morpho_stream_trigram.h \
+            tsx_reader_trigram.h
+            
 
-cc_sources = collection.cc constant_manager.cc hmm.cc interchunk.cc \
+cc_sources = collection.cc constant_manager.cc hmm.cc tagger_data_trigram.cc hmm2.cc interchunk.cc \
              interchunk_word.cc lextor.cc lextor_data.cc lextor_eval.cc \
              lextor_word.cc morpho_stream.cc postchunk.cc string_utils.cc \
              tagger.cc tagger_data.cc tagger_utils.cc tagger_word.cc \
@@ -16,7 +18,9 @@ cc_sources = collection.cc constant_manager.cc hmm.cc interchunk.cc \
              transfer_token.cc transfer_word.cc transfer_word_list.cc \
              trx_reader.cc tsx_reader.cc utf_converter.cc apertium_re.cc \
              endian_double_util.cc transfer_mult.cc tmx_builder.cc \
-             smooth_utils.cc
+             smooth_utils.cc smooth_utils_trigram.cc morpho_stream_trigram.cc \
+             tsx_reader_trigram.cc
+             
 
 library_includedir = $(includedir)/$(GENERIC_LIBRARY_NAME)-$(GENERIC_API_VERSION)/$(GENERIC_LIBRARY_NAME)
 library_include_HEADERS = $(h_sources)

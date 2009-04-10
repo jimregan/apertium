@@ -29,6 +29,7 @@ struct TForbidRule
 {
     TTag tagi;
     TTag tagj;
+    TTag tagk; 
 };
 
 class TEnforceAfterRule
@@ -36,6 +37,7 @@ class TEnforceAfterRule
 public:
     TTag tagi;
     vector<TTag> tagsj;
+    vector<TTag> tagsk;
 };
 
 

@@ -26,6 +26,7 @@
 
 #include <apertium/constant_manager.h>
 #include <apertium/tagger_data.h>
+#include "tagger_data_trigram.h"
 #include <apertium/ttag.h>
 
 using namespace std;
@@ -35,12 +36,17 @@ class Tagger
 private:
   enum Mode{UNKNOWN_MODE,
             TRAIN_MODE,
+            TRAIN_TRIGRAM_MODE,
             TAGGER_MODE,
+            TAGGER_TRIGRAM_MODE,
             RETRAIN_MODE,
+            RETRAIN_TRIGRAM_MODE,
             TAGGER_SUPERVISED_MODE,
             TRAIN_SUPERVISED_MODE,
+            TRAIN_TRIGRAM_SUPERVISED_MODE,
             RETRAIN_SUPERVISED_MODE,
             TAGGER_EVAL_MODE,
+            TAGGER_TRIGRAM_EVAL_MODE,
             TAGGER_FIRST_MODE};
             
   vector<string> filenames;
@@ -57,9 +63,13 @@ private:
 
   int getMode(int argc, char *argv[]);
   void tagger(bool model_first=false);
+  void taggerTrigram(bool model_first=false);
   void train();
+  void trainTrigram();
   void retrain();
+  void retrainTrigram();
   void trainSupervised();
+  void trainSupervisedTrigram();
   void help();
   void filerror(string const &filename);  
   bool isNumber(const char *str);

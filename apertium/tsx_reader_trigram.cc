@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.
  */
-#include <apertium/tsx_reader.h>
+#include "tsx_reader_trigram.h"
 #include <lttoolbox/xml_parse_util.h>
 #include <lttoolbox/compression.h>
 #include <apertium/string_utils.h>
@@ -27,16 +27,16 @@
 
 using namespace Apertium;
 void
-TSXReader::copy(TSXReader const &o)
+TSXReaderTrigram::copy(TSXReaderTrigram const &o)
 {
 }
 
 void
-TSXReader::destroy()
+TSXReaderTrigram::destroy()
 {
 }
 
-TSXReader::TSXReader()
+TSXReaderTrigram::TSXReaderTrigram()
 {
   open_class = &(tdata.getOpenClass());
   forbid_rules = &(tdata.getForbidRules());
@@ -48,19 +48,19 @@ TSXReader::TSXReader()
   constants = &(tdata.getConstants());
 }
 
-TSXReader::~TSXReader()
+TSXReaderTrigram::~TSXReaderTrigram()
 {
   destroy();
 }
 
-TSXReader::TSXReader(TSXReader const &o)
+TSXReaderTrigram::TSXReaderTrigram(TSXReaderTrigram const &o)
 {
   copy(o);
 }
 
 
 void
-TSXReader::clearTagIndex()
+TSXReaderTrigram::clearTagIndex()
 {
   tag_index->clear();
   array_tags->clear();
@@ -74,7 +74,7 @@ TSXReader::clearTagIndex()
 }
 
 void
-TSXReader::step()
+TSXReaderTrigram::step()
 {
   int retval = xmlTextReaderRead(reader);
   if(retval != 1)
@@ -85,8 +85,8 @@ TSXReader::step()
   type = xmlTextReaderNodeType(reader);
 }
 
-TSXReader &
-TSXReader::operator =(TSXReader const &o)
+TSXReaderTrigram &
+TSXReaderTrigram::operator =(TSXReaderTrigram const &o)
 {
   if(this != &o)
   {
@@ -97,13 +97,13 @@ TSXReader::operator =(TSXReader const &o)
 }
 
 wstring
-TSXReader::attrib(wstring const &name)
+TSXReaderTrigram::attrib(wstring const &name)
 {
   return XMLParseUtil::attrib(reader, name);
 } 
 
 void
-TSXReader::parseError(wstring const &message)
+TSXReaderTrigram::parseError(wstring const &message)
 {
   wcerr << L"Error: (" << xmlTextReaderGetParserLineNumber(reader);
   wcerr << L"): " << message << L"." << endl;
@@ -111,7 +111,7 @@ TSXReader::parseError(wstring const &message)
 }
 
 void
-TSXReader::newTagIndex(wstring const &tag)
+TSXReaderTrigram::newTagIndex(wstring const &tag)
 {
   if(tag_index->find(L"TAG_" + tag) != tag_index->end())
   {
@@ -123,7 +123,7 @@ TSXReader::newTagIndex(wstring const &tag)
 }
 
 void
-TSXReader::newDefTag(wstring const &tag)
+TSXReaderTrigram::newDefTag(wstring const &tag)
 {
   if(tag_index->find(L"TAG_" + tag) != tag_index->end())
   {
@@ -135,14 +135,14 @@ TSXReader::newDefTag(wstring const &tag)
 }
 
 void
-TSXReader::newConstant(wstring const &constant)
+TSXReaderTrigram::newConstant(wstring const &constant)
 {
   constants->setConstant(constant, array_tags->size());
   array_tags->push_back(constant);
 }
 
 void
-TSXReader::procDiscardOnAmbiguity()
+TSXReaderTrigram::procDiscardOnAmbiguity()
 {
   while(type != XML_READER_TYPE_END_ELEMENT || name != L"discard-on-ambiguity")
   {
@@ -182,7 +182,7 @@ TSXReader::procDiscardOnAmbiguity()
 }
 
 void
-TSXReader::procDefLabel()
+TSXReaderTrigram::procDefLabel()
 {
   wstring name_attr = attrib(L"name");
   wstring closed_attr = attrib(L"closed");
@@ -225,7 +225,7 @@ TSXReader::procDefLabel()
 }
 
 void
-TSXReader::procDefMult()
+TSXReaderTrigram::procDefMult()
 {
   wstring name_attr = attrib(L"name");
   wstring closed_attr = attrib(L"closed");
@@ -298,7 +298,7 @@ TSXReader::procDefMult()
 }
 
 void
-TSXReader::procTagset()
+TSXReaderTrigram::procTagset()
 { 
   while(type == XML_READER_TYPE_END_ELEMENT || name != L"tagset")
   {
@@ -347,7 +347,7 @@ TSXReader::procTagset()
 
 
 void
-TSXReader::procLabelSequence()
+TSXReaderTrigram::procLabelSequence()
 {
   TForbidRule forbid_rule;
 
@@ -391,7 +391,7 @@ TSXReader::procLabelSequence()
 }
 
 void
-TSXReader::procForbid()
+TSXReaderTrigram::procForbid()
 {
   step();
   while(type != XML_READER_TYPE_END_ELEMENT || name != L"forbid")
@@ -435,7 +435,7 @@ TSXReader::procForbid()
 }
 
 void
-TSXReader::procEnforce()
+TSXReaderTrigram::procEnforce()
 {
   int labelset_count = 0;
   TEnforceAfterRule aux;
@@ -500,7 +500,7 @@ TSXReader::procEnforce()
 }
 
 void
-TSXReader::procPreferences()
+TSXReaderTrigram::procPreferences()
 {
   while(type != XML_READER_TYPE_END_ELEMENT || name != L"preferences")
   {
@@ -540,7 +540,7 @@ TSXReader::procPreferences()
 }
 
 void
-TSXReader::read(string const &filename)
+TSXReaderTrigram::read(string const &filename)
 {
   reader = xmlReaderForFile(filename.c_str(), NULL, 0);
   if(reader == NULL)
@@ -617,7 +617,7 @@ TSXReader::read(string const &filename)
 }
 
 void
-TSXReader::write(string const &filename)
+TSXReaderTrigram::write(string const &filename)
 {
   FILE *out = fopen(filename.c_str(), "wb");
   if(!out)
@@ -632,8 +632,8 @@ TSXReader::write(string const &filename)
   fclose(out);
 }
 
-TaggerData &
-TSXReader::getTaggerData()
+TaggerDataTrigram &
+TSXReaderTrigram::getTaggerData()
 {
   return tdata;
 }

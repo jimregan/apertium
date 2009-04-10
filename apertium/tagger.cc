@@ -26,7 +26,9 @@
 #include <apertium/hmm.h>
 #include <apertium/tagger_utils.h>
 #include <apertium/tsx_reader.h>
+#include "tsx_reader_trigram.h"
 #include <apertium/tagger_word.h>
+#include "hmm2.h"
 
 #include <cstdio>
 #include <fstream>
@@ -85,15 +87,16 @@ Tagger::getMode(int argc, char *argv[])
       {"show-superficial",     no_argument,       0, 'p'},
       {"eval",       no_argument,       0, 'e'},
       {"first",      no_argument,       0, 'f'},
+      {"trigram",    no_argument,       0, 'y'},
       {"help",       no_argument,       0, 'h'}, 
       {"debug",      no_argument,       0, 'd'}, 
       {"mark",       no_argument,       0, 'm'},
       {0, 0, 0, 0}
     };
 
-    c=getopt_long(argc, argv, "z:l:mdt:s:r:gpefh",long_options, &option_index);
+    c=getopt_long(argc, argv, "yz:l:mdt:s:r:gpefh",long_options, &option_index);
 #else
-    c=getopt(argc, argv, "z:l:mdt:s:r:gpefh");
+    c=getopt(argc, argv, "yz:l:mdt:s:r:gpefh");
 #endif
     if (c==-1)
       break;
@@ -110,10 +113,23 @@ Tagger::getMode(int argc, char *argv[])
         }
               
         break;
-
+      
       case 'z':
       savecountsfile=optarg;
       break;
+
+      case 'y':            //trigram mode
+        if(mode==TAGGER_MODE)  mode=TAGGER_TRIGRAM_MODE;
+        else if (mode==TRAIN_MODE)  mode=TRAIN_TRIGRAM_MODE;
+        else if (mode==TRAIN_SUPERVISED_MODE)  mode=TRAIN_TRIGRAM_SUPERVISED_MODE;
+        else if (mode==RETRAIN_MODE)  mode=RETRAIN_TRIGRAM_MODE;
+        else if (mode==TAGGER_EVAL_MODE)  mode=TAGGER_TRIGRAM_EVAL_MODE;
+        else
+        {
+          wcerr<<L"Error: --trigram should be used after train, train supervised, retrain or tagger eval option.\n";
+          help();
+        }
+        break;
 
       case 'm':
 	TaggerWord::generate_marks = true;
@@ -226,7 +242,7 @@ Tagger::getMode(int argc, char *argv[])
 	  help();
 	} 
 	break;
-        
+
       case 'h':
         help(); 
         break;
@@ -329,6 +345,24 @@ Tagger::main(int argc, char *argv[])
       tagger(true);
       break;
 
+	//trigram modes
+
+    case TAGGER_TRIGRAM_MODE:
+      taggerTrigram();
+      break;
+
+    case TRAIN_TRIGRAM_MODE:
+      trainTrigram();
+      break;
+
+    case TRAIN_TRIGRAM_SUPERVISED_MODE:
+      trainSupervisedTrigram();
+      break;
+
+    case RETRAIN_TRIGRAM_MODE:
+      retrainTrigram();
+      break;
+
     default:
       wcerr<<L"Error: Unknown working mode mode\n";
       help();
@@ -380,6 +414,57 @@ Tagger::tagger(bool mode_first)
 #endif
 
       hmm.tagger(finput, foutput, mode_first);
+      fclose(foutput);
+    }
+    fclose(finput);
+  }
+}
+
+
+void
+Tagger::taggerTrigram(bool mode_first)
+{
+  FILE *ftdata = fopen(filenames[0].c_str(), "rb");
+  if (!ftdata) {
+    filerror(filenames[0]);
+  }
+
+  TaggerDataTrigram td;
+  td.read(ftdata);
+  fclose(ftdata);
+  
+  HMM2 hmm2(&td);
+
+  hmm2.set_show_sf(showSF);
+
+  if(filenames.size() == 1)
+  {
+    hmm2.tagger(stdin, stdout, mode_first);
+  }
+  else
+  {
+    FILE *finput = fopen(filenames[1].c_str(), "r");
+    if (!finput) {
+      filerror(filenames[1]);
+    }
+#ifdef WIN32
+	_setmode(_fileno(finput), _O_U8TEXT);
+#endif
+    if(filenames.size() == 2)
+    {
+      hmm2.tagger(finput, stdout, mode_first);
+    }
+    else
+    {
+      FILE *foutput = fopen(filenames[2].c_str(), "w");
+      if (!foutput) {
+        filerror(filenames[2]);
+      }
+#ifdef WIN32
+	  _setmode(_fileno(foutput), _O_U8TEXT);
+#endif
+
+      hmm2.tagger(finput, foutput, mode_first);
       fclose(foutput);
     }
     fclose(finput);
@@ -438,6 +523,58 @@ Tagger::train()
   }
   wcerr << L"Applying forbid and enforce rules...\n";
   hmm.apply_rules();
+
+  fclose(fdic);
+  fclose(fcrp);
+  treader.write(filenames[3]);
+}
+
+
+void
+Tagger::trainTrigram()
+{
+  TSXReaderTrigram treader;
+  treader.read(filenames[2]);
+  HMM2 hmm2(&(treader.getTaggerData()));
+  hmm2.set_debug(debug);
+  hmm2.set_eos((treader.getTaggerData().getTagIndex())[L"TAG_SENT"]);
+  TaggerWord::setArrayTags(treader.getTaggerData().getArrayTags());
+  
+  wcerr << L"Calculating ambiguity classes...\n";
+  FILE *fdic = fopen(filenames[0].c_str(), "r");
+  if(fdic)
+  {
+    hmm2.read_dictionary(fdic);
+  }
+  else
+  {
+    filerror(filenames[0]);
+  }
+  wcerr << L"Kupiec's initialization of transition and emission probabilities...\n";
+  FILE *fcrp = fopen(filenames[1].c_str(), "r");
+  if(fcrp)
+  {
+#ifdef WIN32
+    _setmode(_fileno(fcrp), _O_U8TEXT);
+#endif 
+    hmm2.init_probabilities_kupiec(fcrp, corpus_length, savecountsfile);               
+  }
+  else
+  {
+    filerror(filenames[1]);
+  }
+  
+  wcerr << L"Applying forbid and enforce rules...\n";
+  hmm2.apply_rules();
+  
+  wcerr << L"Training (Baum-Welch)...\n";
+  for(int i=0; i != nit; i++)
+  {
+    fseek(fcrp, 0, SEEK_SET);
+    hmm2.train(fcrp, corpus_length, savecountsfile);
+  }
+  wcerr << L"Applying forbid and enforce rules...\n";
+  hmm2.apply_rules();
 
   fclose(fdic);
   fclose(fcrp);
@@ -511,6 +648,74 @@ Tagger::trainSupervised()
   treader.write(filenames[3]);
 }
 
+
+void
+Tagger::trainSupervisedTrigram()
+{
+  TSXReaderTrigram treader;
+  treader.read(filenames[2]);
+  HMM2 hmm2(&(treader.getTaggerData()));
+  hmm2.set_debug(debug);
+  hmm2.set_eos((treader.getTaggerData().getTagIndex())[L"TAG_SENT"]);
+  TaggerWord::setArrayTags(treader.getTaggerData().getArrayTags());
+  
+  wcerr << L"Calculating ambiguity classes...\n";
+  FILE *fdic = fopen(filenames[0].c_str(), "r");
+  if(fdic)
+  {
+    hmm2.read_dictionary(fdic);
+  }
+  else
+  {
+    filerror(filenames[0]);
+  }
+  wcerr << L"Kupiec's initialization of transition and emission probabilities...\n";
+  FILE *ftagged = fopen(filenames[4].c_str(), "r");
+  FILE *funtagged = fopen(filenames[5].c_str(), "r");
+  if(ftagged && funtagged)
+  {
+#ifdef WIN32
+    _setmode(_fileno(ftagged), _O_U8TEXT);
+    _setmode(_fileno(funtagged), _O_U8TEXT);
+#endif 
+    wcerr << L"Initializing transition and emission probabilities from a hand-tagged corpus...\n";
+    hmm2.init_probabilities_from_tagged_text(ftagged, funtagged, savecountsfile);
+  }
+  else
+  {
+    filerror(filenames[4]+ "' or '" + filenames[5]);
+  }
+  fclose(ftagged);
+  fclose(funtagged);
+  
+  wcerr << L"Applying forbid and enforce rules...\n";
+  hmm2.apply_rules();
+  
+  wcerr << L"Training (Baum-Welch)...\n";
+  FILE *fcrp = fopen(filenames[1].c_str(), "r");
+  if(fcrp)
+  {
+#ifdef WIN32
+    _setmode(_fileno(fcrp), _O_U8TEXT);
+#endif 
+    for(int i=0; i != nit; i++)
+    {
+      fseek(fcrp, 0, SEEK_SET);
+      hmm2.train(fcrp, corpus_length, savecountsfile);
+    }
+    wcerr << L"Applying forbid and enforce rules...\n";
+    hmm2.apply_rules();
+  }
+  else
+  {
+    filerror(filenames[1]);
+  }
+
+  fclose(fdic);
+  fclose(fcrp);
+  treader.write(filenames[3]);
+}
+
 void
 Tagger::retrain()
 {
@@ -556,6 +761,50 @@ Tagger::retrain()
 }
 
 void
+Tagger::retrainTrigram()
+{
+  TaggerDataTrigram td;
+  FILE *ftdata = fopen(filenames[1].c_str(), "rb");
+  if(!ftdata)
+  {
+    filerror(filenames[1]);
+  }
+  td.read(ftdata);
+  fclose(ftdata);
+
+  HMM2 hmm2(&td);
+  hmm2.set_debug(debug);
+  hmm2.set_eos((td.getTagIndex())[L"TAG_SENT"]);
+  TaggerWord::setArrayTags(td.getArrayTags());
+
+  FILE *fcrp = fopen(filenames[0].c_str(), "r");
+  if(!fcrp)
+  {
+    filerror(filenames[0]);
+  }
+#ifdef WIN32
+  _setmode(_fileno(fcrp), _O_U8TEXT);
+#endif 
+  wcerr << L"Training (Baum-Welch)...\n";
+  for(int i=0; i != nit; i++)
+  {
+    fseek(fcrp, 0, SEEK_SET);
+    hmm2.train(fcrp, corpus_length, savecountsfile);
+  }
+  wcerr << L"Applying forbid and enforce rules...\n";
+  hmm2.apply_rules();
+  fclose(fcrp);
+
+  ftdata = fopen(filenames[1].c_str(), "wb");
+  if(!ftdata)
+  {
+    filerror(filenames[1]);
+  }
+  td.write(ftdata);
+  fclose(ftdata);
+}
+
+void
 Tagger::help()
 {
   ostream &out = cerr;
@@ -583,6 +832,7 @@ Tagger::help()
   out << "                       one in the first place (after the lemma)"<<endl;
   out << "  -d, --debug:         print error mesages when tagging input text" << endl;
   out << "  -m, --mark:          generate marks of solved ambiguities" << endl;
+  out << "  -y, --trigram:       experimental trigram mode!!" << endl;
   out << endl;
   out << "And FILES are:" << endl;          
   out << "  DIC:         full expanded dictionary file" << endl;
