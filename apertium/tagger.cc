@@ -263,34 +263,34 @@ Tagger::getMode(int argc, char *argv[])
   switch(argc-optind)
   {
     case 6:
-      if(mode != TRAIN_SUPERVISED_MODE)
+      if((mode != TRAIN_SUPERVISED_MODE) && (mode != TRAIN_TRIGRAM_SUPERVISED_MODE))
       {
         help();
       }
       break;
     
     case 4:
-      if(mode != TRAIN_MODE)
+      if((mode != TRAIN_MODE) && (mode != TRAIN_TRIGRAM_MODE))
       {
         help();
       }
       break;
     case 3:
-      if ((mode != TAGGER_MODE) && (mode != TAGGER_FIRST_MODE))
+      if ((mode != TAGGER_MODE) && (mode != TAGGER_FIRST_MODE) && (mode != TAGGER_TRIGRAM_MODE))
       {
         help();
       }
       break;
       
     case 2:
-      if(mode != RETRAIN_MODE && mode != TAGGER_MODE)
+      if(mode != RETRAIN_MODE && mode != TAGGER_MODE && (mode != TAGGER_TRIGRAM_MODE) && (mode != RETRAIN_TRIGRAM_MODE))
       {
         help();
       }
       break;
     
     case 1:
-      if ((mode != TAGGER_MODE) && (mode != TAGGER_FIRST_MODE))
+      if ((mode != TAGGER_MODE) && (mode != TAGGER_FIRST_MODE) && (mode != TAGGER_TRIGRAM_MODE))
       {
         help();
       }
@@ -349,10 +349,12 @@ Tagger::main(int argc, char *argv[])
 
     case TAGGER_TRIGRAM_MODE:
       taggerTrigram();
+      cerr<<"Phew! taggerTrigram over\n";
       break;
 
     case TRAIN_TRIGRAM_MODE:
       trainTrigram();
+      cerr<<"Phew! trainTrigram over\n";
       break;
 
     case TRAIN_TRIGRAM_SUPERVISED_MODE:
@@ -423,7 +425,8 @@ Tagger::tagger(bool mode_first)
 
 void
 Tagger::taggerTrigram(bool mode_first)
-{
+{ 
+  cerr<<"taggerTrigram\n";
   FILE *ftdata = fopen(filenames[0].c_str(), "rb");
   if (!ftdata) {
     filerror(filenames[0]);
@@ -533,6 +536,7 @@ Tagger::train()
 void
 Tagger::trainTrigram()
 {
+  cerr<<"trainTrigram\n";
   TSXReaderTrigram treader;
   treader.read(filenames[2]);
   HMM2 hmm2(&(treader.getTaggerData()));
@@ -540,7 +544,7 @@ Tagger::trainTrigram()
   hmm2.set_eos((treader.getTaggerData().getTagIndex())[L"TAG_SENT"]);
   TaggerWord::setArrayTags(treader.getTaggerData().getArrayTags());
   
-  wcerr << L"Calculating ambiguity classes...\n";
+  wcerr << L"trainTrigram: Calculating ambiguity classes...\n";
   FILE *fdic = fopen(filenames[0].c_str(), "r");
   if(fdic)
   {
@@ -550,7 +554,7 @@ Tagger::trainTrigram()
   {
     filerror(filenames[0]);
   }
-  wcerr << L"Kupiec's initialization of transition and emission probabilities...\n";
+  wcerr << L"trainTrigram: Kupiec's initialization of transition and emission probabilities...\n";
   FILE *fcrp = fopen(filenames[1].c_str(), "r");
   if(fcrp)
   {
@@ -564,21 +568,23 @@ Tagger::trainTrigram()
     filerror(filenames[1]);
   }
   
-  wcerr << L"Applying forbid and enforce rules...\n";
+  wcerr << L"trainTrigram: Applying forbid and enforce rules...\n";
   hmm2.apply_rules();
   
-  wcerr << L"Training (Baum-Welch)...\n";
+  wcerr << L"trainTrigram: Training (Baum-Welch)...\n";
   for(int i=0; i != nit; i++)
   {
     fseek(fcrp, 0, SEEK_SET);
     hmm2.train(fcrp, corpus_length, savecountsfile);
   }
-  wcerr << L"Applying forbid and enforce rules...\n";
+  wcerr << L"trainTrigram: Applying forbid and enforce rules...\n";
   hmm2.apply_rules();
 
   fclose(fdic);
   fclose(fcrp);
+  cerr<<"trainTrigram: Nearly over\n";
   treader.write(filenames[3]);
+  cerr<<"trainTrigram: Nearly over. Oh yeah\n";
 }
 
 void
@@ -652,6 +658,7 @@ Tagger::trainSupervised()
 void
 Tagger::trainSupervisedTrigram()
 {
+  cerr<<"trainSupervisedTrigram\n";
   TSXReaderTrigram treader;
   treader.read(filenames[2]);
   HMM2 hmm2(&(treader.getTaggerData()));
@@ -763,6 +770,7 @@ Tagger::retrain()
 void
 Tagger::retrainTrigram()
 {
+  cerr<<"retrainTrigram\n";
   TaggerDataTrigram td;
   FILE *ftdata = fopen(filenames[1].c_str(), "rb");
   if(!ftdata)

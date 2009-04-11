@@ -325,6 +325,7 @@ TaggerDataTrigram::read(FILE *in)
     aux.tagi = Compression::multibyte_read(in);
     aux.tagj = Compression::multibyte_read(in);
     aux.tagk = Compression::multibyte_read(in);
+    if(aux.tagk==999) aux.tagk=-999;
     forbid_rules.push_back(aux);
   }
 
@@ -440,6 +441,7 @@ TaggerDataTrigram::read(FILE *in)
 void
 TaggerDataTrigram::write(FILE *out)
 {
+  cerr << "TaggerDataTrigram::write" << endl;
   
   // open_class
   Compression::multibyte_write(open_class.size(), out);  
@@ -451,15 +453,25 @@ TaggerDataTrigram::write(FILE *out)
     val = *it;
   }
   
+  cerr << "TaggerDataTrigram::write open_class done" << endl;
   // forbid_rules
   Compression::multibyte_write(forbid_rules.size(), out);
   for(unsigned int i = 0, limit = forbid_rules.size(); i != limit; i++)
   {
+    cerr << "TaggerDataTrigram:: inside forbid rules loop in\n" << endl;
     Compression::multibyte_write(forbid_rules[i].tagi, out);
+    cerr << "TaggerDataTrigram:: inside forbid rules tagi doneloop\n" << endl;
     Compression::multibyte_write(forbid_rules[i].tagj, out);
-    Compression::multibyte_write(forbid_rules[i].tagk, out);
+    cerr << "TaggerDataTrigram:: inside forbid rules tagj done loop\n" << endl;
+    wcerr<<L"tagk="<<forbid_rules[i].tagk<<endl;
+    if(forbid_rules[i].tagk!=-999)
+      Compression::multibyte_write(forbid_rules[i].tagk, out);
+    else 
+      Compression::multibyte_write(999, out);
+    cerr << "TaggerDataTrigram:: inside forbid rules loop out\n" << endl;
   }
   
+  cerr << "TaggerDataTrigram::write forbid_rules done" << endl;
   // array_tags
   Compression::multibyte_write(array_tags.size(), out);
   for(unsigned int i = 0, limit = array_tags.size(); i != limit; i++)
@@ -467,6 +479,7 @@ TaggerDataTrigram::write(FILE *out)
     Compression::wstring_write(array_tags[i], out);
   }
 
+  cerr << "TaggerDataTrigram::write array_tags done" << endl;
   // tag_index
   Compression::multibyte_write(tag_index.size(), out);
   for(map<wstring, int, Ltstr>::iterator it = tag_index.begin(), limit = tag_index.end();
@@ -476,6 +489,7 @@ TaggerDataTrigram::write(FILE *out)
     Compression::multibyte_write(it->second, out);
   }
   
+  cerr << "TaggerDataTrigram::write tag_index done" << endl;
   // enforce_rules
   Compression::multibyte_write(enforce_rules.size(), out);
   for(unsigned int i = 0, limit = enforce_rules.size(); i != limit; i++)
@@ -492,6 +506,7 @@ TaggerDataTrigram::write(FILE *out)
     }
   }
 
+  cerr << "TaggerDataTrigram::write  enforce_rules done" << endl;
   // prefer_rules
   Compression::multibyte_write(prefer_rules.size(), out);
   for(unsigned int i = 0, limit = prefer_rules.size(); i != limit; i++)
@@ -499,6 +514,7 @@ TaggerDataTrigram::write(FILE *out)
     Compression::wstring_write(prefer_rules[i], out);
   }
   
+  cerr << "TaggerDataTrigram::write prefer_rules done" << endl;
   // constants
   constants.write(out);  
 
@@ -516,6 +532,7 @@ TaggerDataTrigram::write(FILE *out)
       EndianDoubleUtil::write(out, a[i][j][k]);
     }
   }
+  cerr << "TaggerDataTrigram::write a matrix done" << endl;
 
   // b matrix, writing only useful values
   
@@ -551,6 +568,7 @@ TaggerDataTrigram::write(FILE *out)
       }
     }
   }  
+  cerr << "TaggerDataTrigram::write  b matrix done" << endl;
   
   // write pattern list
   plist.write(out);
@@ -565,6 +583,7 @@ TaggerDataTrigram::write(FILE *out)
       Compression::wstring_write(discard[i], out);
     }
   }  
+  cerr << "TaggerDataTrigram::write discard list done" << endl;
 }
 
 void
