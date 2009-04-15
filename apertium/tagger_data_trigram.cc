@@ -317,6 +317,7 @@ TaggerDataTrigram::read(FILE *in)
     val += Compression::multibyte_read(in);
     open_class.insert(val);
   }
+  wcerr<<L"TaggerDataTrigram::read open_class done\n";
   
   // forbid_rules
   for(int i = Compression::multibyte_read(in); i != 0; i--)
@@ -329,6 +330,7 @@ TaggerDataTrigram::read(FILE *in)
     forbid_rules.push_back(aux);
   }
 
+  wcerr<<L"TaggerDataTrigram::read forbid_rules done\n";
   
   // array_tags
   for(int i = Compression::multibyte_read(in); i != 0; i--)
@@ -336,6 +338,7 @@ TaggerDataTrigram::read(FILE *in)
     array_tags.push_back(Compression::wstring_read(in));
   }
   
+  wcerr<<L"TaggerDataTrigram::read array_tags done\n";
   // tag_index
   for(int i = Compression::multibyte_read(in); i != 0; i--)
   {
@@ -343,6 +346,7 @@ TaggerDataTrigram::read(FILE *in)
     tag_index[tmp] = Compression::multibyte_read(in);
   }
 
+  wcerr<<L"TaggerDataTrigram::read  tag_index done\n";
   // enforce_rules  
   for(int i = Compression::multibyte_read(in); i != 0; i--)
   {
@@ -358,6 +362,7 @@ TaggerDataTrigram::read(FILE *in)
     }
     enforce_rules.push_back(aux);
   }
+  wcerr<<L"TaggerDataTrigram::read  enforce_rules done\n";
 
   // prefer_rules
   for(int i = Compression::multibyte_read(in); i != 0; i--)
@@ -365,6 +370,7 @@ TaggerDataTrigram::read(FILE *in)
     prefer_rules.push_back(Compression::wstring_read(in));
   }
 
+  wcerr<<L"TaggerDataTrigram::read  prefer_rules done\n";
   // constants
   constants.read(in);
 
@@ -394,11 +400,14 @@ TaggerDataTrigram::read(FILE *in)
   {
     for(int j = 0; j != N; j++)
     {
-      for(int k = 0; k != N; k++)
-      a[i][j][k] = EndianDoubleUtil::read(in);
+      for(int k = 0; k != N; k++){
+        a[i][j][k] = EndianDoubleUtil::read(in);
+        cerr<<"a["<<i<<"]["<<j<<"]["<<k<<"] = "<<a[i][j][k]<<"\n";
+      }
     }
   }
 
+  wcerr<<L"TaggerDataTrigram::read read a done\n";
   // initializing b matix
   for(int i = 0 ; i != N; i++)
   {
@@ -409,6 +418,8 @@ TaggerDataTrigram::read(FILE *in)
     }
   }
 
+  wcerr<<L"TaggerDataTrigram::read N="<<N<<L" M="<<M<<"\n";
+  wcerr<<L"TaggerDataTrigram::read initialize b done\n";
   // read nonZERO values of b
   int nval = Compression::multibyte_read(in);
 
@@ -417,8 +428,10 @@ TaggerDataTrigram::read(FILE *in)
     int i = Compression::multibyte_read(in);
     int j = Compression::multibyte_read(in);
     int k = Compression::multibyte_read(in);
+    cerr<<"b["<<i<<"]["<<j<<"]["<<k<<"] reading\n";
     b[i][j][k] = EndianDoubleUtil::read(in);
   }
+  wcerr<<L"TaggerDataTrigram::read  values of b done\n";
 
   // read pattern list
   plist.read(in);
@@ -436,6 +449,7 @@ TaggerDataTrigram::read(FILE *in)
   {
     discard.push_back(Compression::wstring_read(in));
   }
+  wcerr<<L"TaggerDataTrigram::read over done\n";
 }
 
 void
@@ -500,6 +514,7 @@ TaggerDataTrigram::write(FILE *out)
     {
       Compression::multibyte_write(enforce_rules[i].tagsj[j], out);
     }
+    Compression::multibyte_write(enforce_rules[i].tagsk.size(), out);
     for(unsigned int k = 0, limit2 = enforce_rules[i].tagsk.size(); k != limit2; k++)
     {
       Compression::multibyte_write(enforce_rules[i].tagsk[k], out);
