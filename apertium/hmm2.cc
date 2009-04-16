@@ -848,6 +848,7 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   word = morpho_stream.get_next_word();
  
   while (word) {
+    wcerr<<L"HMM2::Tagger while loop start: word="<<word->get_superficial_form()<<L"\n";
     wpend.push_back(*word);    	    
     nwpend = wpend.size();
     
@@ -900,9 +901,11 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
         }
       }
     }
+    cerr<<"HMM2::Tagger alpha best done\n";
     
     //Backtracking
     if (tags.size()==1 && pretags.size()==1) {       
+      cerr<<"HMM2::Tagger UNAMBIGUOUS pair!\n";
       tag = *tags.begin();      
       pretag = *pretags.begin();      
       
@@ -914,11 +917,14 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
         if (debug)
 	  wcerr<<L"Problem with word '"<<word->get_superficial_form()<<L"' "<<word->get_string_tags()<<L"\n";
       }
+      cerr<<"HMM2::Tagger print best pretag tag size "<<best[nwpend%2][pretag][tag].size()<<"\n";
       for (unsigned t=0; t<best[nwpend%2][pretag][tag].size(); t++) {
 	if (show_all_good_first) {
+          cerr<<"HMM2::Tagger print in backtracking good first\n";
 	  wstring const &micad = wpend[t].get_all_chosen_tag_first(best[nwpend%2][pretag][tag][t], (td->getTagIndex())[L"TAG_kEOF"]);
 	  fputws_unlocked(micad.c_str(), out); 
-	} else {
+	} else { 
+          cerr<<"HMM2::Tagger print in backtracking\n";
 	  wpend[t].set_show_sf(show_sf);
 	  wstring const &micad = wpend[t].get_lexical_form(best[nwpend%2][pretag][tag][t], (td->getTagIndex())[L"TAG_kEOF"]);
 	  fputws_unlocked(micad.c_str(), out); 
