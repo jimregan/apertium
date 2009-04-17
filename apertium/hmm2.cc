@@ -822,7 +822,7 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   cerr<<"HMM2::Tagger\n";
   int i, j, k, k2, nw;
   TaggerWord *word=NULL;
-  TTag tag, pretag;
+  TTag tag, pretag, prepretag;
   
   set <TTag> tags, pretags, prepretags;
   set <TTag>::iterator itag, jtag, ktag;
@@ -840,9 +840,13 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   Collection &output = td->getOutput();
   
   loli = nw = 0;
-  
+   
   //Initialization
+  tags.clear();
+  pretags.clear();
+  prepretags.clear();
   tags.insert(eos);
+  pretags.insert(eos);
   alpha[0][eos][eos] = 1;       
    
   word = morpho_stream.get_next_word();
@@ -852,6 +856,7 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
     wpend.push_back(*word);    	    
     nwpend = wpend.size();
     
+    prepretags = pretags; // Tags from the pre-previous word
     pretags = tags; // Tags from the previous word
 
     tags = word->get_tags();
@@ -883,6 +888,7 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
       }
     }
     
+    cerr<<"HMM2::Tagger tags="<<tags.size()<<" pretags="<<pretags.size()<<" prepretags="<<prepretags.size()<<"\n";
     //Induction
     for (itag=tags.begin(); itag!=tags.end(); itag++) { //For all tag from the current word
       i=*itag;
@@ -891,8 +897,11 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
         for (ktag=prepretags.begin(); ktag!=prepretags.end(); ktag++) {
            k2=*ktag;
 	  x = alpha[1-nwpend%2][k2][j]*(td->getA())[k2][j][i]*(td->getB())[j][i][k];
+          cerr<<"HMM2::Tagger Induction x="<<x<<"\n";
+          cerr<<"HMM2::Tagger Induction alpha nwpend2 j i="<<alpha[nwpend%2][j][i]<<"\n";
 	  //x = alpha[1-nwpend%2][j]*(td->getA())[j][i]*(td->getB())[i][k];
 	  if (alpha[nwpend%2][j][i]<=x) {
+          cerr<<"HMM2::Tagger inside nwpend block, nwpend="<<nwpend<<"\n";
 	    if (nwpend>1) 
 	      best[nwpend%2][j][i] = best[1-nwpend%2][k2][j];
 	    best[nwpend%2][j][i].push_back(i);
