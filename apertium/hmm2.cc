@@ -545,14 +545,13 @@ HMM2::apply_rules()
         found = false;
         for (j2=0; j2<(int) enforce_rules[i].tagsj.size(); j2++) {
 	  if (enforce_rules[i].tagsj[j2]==j) {              //enforce rules with tagsj only
-            if(enforce_rules[i].tagsk.size()==0)
-            {
+            if(enforce_rules[i].tagsk.size()==0){
 	      found = true;
+	      (td->getA())[k][enforce_rules[i].tagi][j] = ZERO; //any tag, tagi, tagsj
             }
 	    for (k2=0; k2<(int) enforce_rules[i].tagsk.size(); k2++)    //enforce rules with tagsj and tagsk
             {
-	      if (enforce_rules[i].tagsk[k2]==k)
-              {
+	      if (enforce_rules[i].tagsk[k2]==k){
 	        found = true;
 	        break;
 	      }
