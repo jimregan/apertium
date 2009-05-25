@@ -46,7 +46,7 @@ using namespace tagger_utils;
 
 HMM2::HMM2(TaggerDataTrigram *t)
 {
-  cerr<<"HMM2::constructor\n";
+  //cerr<<"HMM2::constructor\n";
   this->td = t;
 
   debug=false;
@@ -139,7 +139,7 @@ HMM2::write_probabilities(FILE *out)
 void 
 HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsfile)
 {
-  cerr<<"HMM2::Kupiec\n";
+  //cerr<<"HMM2::Kupiec\n";
   int N = td->getN();
   int M = td->getM();
   int i, j, k, k1, k2, k3, nw=0;
@@ -204,7 +204,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
     word=lexmorfo.get_next_word();
 
   while((word)) {
-    wcerr<<"Kupiec word: "<<word->get_superficial_form()<<"\n";
+    //wcerr<<"Kupiec word: "<<word->get_superficial_form()<<"\n";
     if (++nw%10000==0) wcerr<<L'.'<<flush; 
     
     tags=word->get_tags();
@@ -240,7 +240,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   }
  
   
-  wcerr<<"Kupiec word: Out of while loop\n";
+  //wcerr<<"Kupiec word: Out of while loop\n";
 
   //Estimation of the number of time each tags occurs in the training text
   for(i=0; i<N; i++) {  
@@ -252,7 +252,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   }
 
  
-  wcerr<<"Kupiec: tags_count_for_emis done\n";
+  //wcerr<<"Kupiec: tags_count_for_emis done\n";
   //Estimation of the number of times each tag pair occurs
   for(i=0; i<N; i++){
     tags_count[i]=0;
@@ -269,7 +269,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
     }
   }
 
-  wcerr<<"Kupiec: tags_count etc zeroed done\n";
+  //wcerr<<"Kupiec: tags_count etc zeroed done\n";
   set<TTag> tags1, tags2, tags3;
   set<TTag>::iterator itag1, itag2, itag3;
   for(k1=0; k1<M; k1++) {
@@ -298,7 +298,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
     }
   }
 
-  wcerr<<"Kupiec: tags_count etc done done\n";
+  //wcerr<<"Kupiec: tags_count etc done done\n";
 
   //Estimation of the number of times each ambiguity class is emitted
   //from each tag
@@ -309,7 +309,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
       }
     }
   }
-  wcerr<<"Kupiec: emis done\n";
+  //wcerr<<"Kupiec: emis done\n";
 
   //Estimation of the number of times each ambiguity class is emitted
   //from each tag pair
@@ -331,7 +331,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
       }
     }
   }
-  wcerr<<"Kupiec: emis2  done\n";
+  //wcerr<<"Kupiec: emis2  done\n";
 /*
   for(i=0; i<N; i++) {
     for(j=0; j<N; j++) {
@@ -357,7 +357,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
     }
   }
 
-  wcerr<<"Kupiec: tags_pair_for_emis2 done\n";
+  //wcerr<<"Kupiec: tags_pair_for_emis2 done\n";
 
 
   if (savecountsfile!="") {
@@ -372,7 +372,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
 
 void 
 HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string savecountsfile) {
-  cerr<<"HMM2::train_tagged\n";
+  //cerr<<"HMM2::train_tagged\n";
   int i, j, k, nw=0;
   int N = td->getN();
   int M = td->getM();
@@ -430,8 +430,8 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
   word_tagged = stream_tagged.get_next_word();
   word_untagged = stream_untagged.get_next_word();
   while(word_tagged) {
-    wcerr<<*word_tagged;
-    wcerr<<L" -- "<<*word_untagged<<L"\n"; 
+    //wcerr<<*word_tagged;
+    //wcerr<<L" -- "<<*word_untagged<<L"\n"; 
 
     if (word_tagged->get_superficial_form()!=word_untagged->get_superficial_form()) {              
       wcerr<<L"\nTagged text (.tagged) and analyzed text (.untagged) streams are not aligned.\n";
@@ -515,7 +515,7 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
 void
 HMM2::apply_rules()
 {
-  cerr<<"HMM2::applyrules\n";
+  //cerr<<"HMM2::applyrules\n";
   vector<TForbidRule> &forbid_rules = td->getForbidRules();
   vector<TEnforceAfterRule> &enforce_rules = td->getEnforceRules();
   int N = td->getN();
@@ -524,7 +524,7 @@ HMM2::apply_rules()
  
   for(i=0; i<(int) forbid_rules.size(); i++) {
     if(forbid_rules[i].tagk==-999){
-    cerr<<"HMM2::applyrules two label-item forbid rule\n";
+    //cerr<<"HMM2::applyrules two label-item forbid rule\n";
    
       //if only two label-items specified in forbid rule
       for(k=0; k<N; k++){ 
@@ -535,9 +535,9 @@ HMM2::apply_rules()
     else
       //if three label-items specified in forbid rule
       (td->getA())[forbid_rules[i].tagi][forbid_rules[i].tagj][forbid_rules[i].tagk] = ZERO;
-    cerr<<"HMM2::applyrules 3 label-item forbid rule\n";
+    //cerr<<"HMM2::applyrules 3 label-item forbid rule\n";
   }
-  cerr<<"HMM2::applyrules forbid rules done\n";
+  //cerr<<"HMM2::applyrules forbid rules done\n";
 
   for(i=0; i<(int) enforce_rules.size(); i++) {
     for(j=0; j<N; j++) {
@@ -563,7 +563,7 @@ HMM2::apply_rules()
     }
   }
     
-  cerr<<"HMM2::applyrules enforce rules dones\n";
+  //cerr<<"HMM2::applyrules enforce rules dones\n";
   // Normalize probabilities
   for(i=0; i<N; i++) {
     for(j=0; j<N; j++){ 
@@ -578,12 +578,12 @@ HMM2::apply_rules()
       }
     }
   }
-  cerr<<"HMM2::applyrules Normalize probs done\n";
+  //cerr<<"HMM2::applyrules Normalize probs done\n";
 }
 
 void 
 HMM2::read_dictionary (FILE *fdic) {
-  cerr<<"HMM2::readDictionary\n";
+  //cerr<<"HMM2::readDictionary\n";
   int i, k, nw=0;
   TaggerWord *word=NULL;
   set <TTag> tags;
@@ -653,7 +653,7 @@ HMM2::filter_ambiguity_classes(FILE *in, FILE *out) {
 
 void 
 HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
-  cerr<<"HMM2::BW\n";
+  //cerr<<"HMM2::BW\n";
   int i, j, k, k2, t, len, nw = 0;
   TaggerWord *word=NULL;
   TTag tag, pretag; 
@@ -689,7 +689,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   word = morpho_stream.get_next_word();
 
   while (word) {   
-    wcerr<<L"BW word: "<<word->get_superficial_form()<<L"\n";
+    //wcerr<<L"BW word: "<<word->get_superficial_form()<<L"\n";
 
     if (++nw%10000==0) wcerr<<L'.'<<flush;
 
@@ -718,7 +718,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
     alpha[len].clear();     
       
     //Forward probabilities
-    wcerr<<L"BW:: forward prob start\n";
+    //wcerr<<L"BW:: forward prob start\n";
     for (itag=tags.begin(); itag!=tags.end(); itag++) {
       i=*itag;
       for (jtag=pretags.begin(); jtag!=pretags.end(); jtag++) {
@@ -732,7 +732,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
       }
     }
 
-    wcerr<<L"BW:: forward prob end\n";
+    //wcerr<<L"BW:: forward prob end\n";
     if (!(tags.size()==1 && pretags.size()==1)) {
       pending.push_back(tags);
     } else {  // word and previous word are unambiguous
@@ -745,7 +745,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
       loli -= log(prob);  
       wcerr<<L"prob="<<prob<<L" loli="<<loli<<L"\n";
       
-      wcerr<<L"BW:: backward prob start\n";
+      //wcerr<<L"BW:: backward prob start\n";
       for (t=0; t<len-1; t++) {  // loop from T-1 to 0	
         wcerr<<L"t = "<<t<<L"\n";
         pretags = pending.back();
@@ -764,22 +764,22 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
               wcerr<<"A "<<k2<<" "<<j<<" "<<i<<" :"<<(td->getA())[k2][j][i]<<"\n";
               wcerr<<"B "<<j<<" "<<i<<" "<<k<<" :"<<(td->getB())[j][i][k]<<"\n"; 
 	      beta[1-t%2][k2][j] += (td->getA())[k2][j][i]*(td->getB())[j][i][k]*beta[t%2][j][i];
-              wcerr<<"... beta\n";
+             // wcerr<<"... beta\n";
 	      xsi2[k2][j][i] += alpha[len-t-1][k2][j]*(td->getA())[k2][j][i]*(td->getB())[j][i][k]*beta[t%2][j][i]/prob;
-              wcerr<<"... xsi2\n";
+             // wcerr<<"... xsi2\n";
 	    }
   	    gamma2[j][i] +=  alpha[len-t][j][i]*beta[t%2][j][i]/prob;	       
   	    gamma22[j] +=  alpha[len-t][j][i]*beta[t%2][j][i]/prob;	//sum of gamma2[j][i] over all i = tag_count 
   	    gamma[i] +=  alpha[len-t][j][i]*beta[t%2][j][i]/prob;	        //sum of phi[i][k] over all k = tag_count_for_emis
 	    phi2[j][i][k] += alpha[len-t][j][i]*beta[t%2][j][i]/prob;               
 	    phi[i][k] += alpha[len-t][j][i]*beta[t%2][j][i]/prob;               
-            wcerr<<"... gamma or phi\n";
+            //wcerr<<"... gamma or phi\n";
 	  }
 	}
         tags=pretags;
       }
 	
-      wcerr<<L"BW:: backward prob end\n";
+      //wcerr<<L"BW:: backward prob end\n";
       pretags.clear();
       pretags.insert(pretag);
       pending.push_back(pretags);
@@ -800,7 +800,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
     word = morpho_stream.get_next_word();
   }  
 
-  wcerr<<L"BW:: out of loop\n";
+  //wcerr<<L"BW:: out of loop\n";
   if ((pending.size()>1) || ((tag!=eos)&&(tag != (td->getTagIndex())[L"TAG_kEOF"])&&(pretag!=eos)&&(pretag != (td->getTagIndex())[L"TAG_kEOF"])) ) 
     wcerr<<L"Warning: Thee las tag is not the end-of-sentence-tag\n";
   
@@ -818,7 +818,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
 
 void 
 HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
-  cerr<<"HMM2::Tagger\n";
+  //cerr<<"HMM2::Tagger\n";
   int i, j, k, k2, nw;
   TaggerWord *word=NULL;
   TTag tag, pretag, prepretag;
@@ -851,7 +851,7 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   word = morpho_stream.get_next_word();
  
   while (word) {
-    wcerr<<L"HMM2::Tagger while loop start: word="<<word->get_superficial_form()<<L"\n";
+   // wcerr<<L"HMM2::Tagger while loop start: word="<<word->get_superficial_form()<<L"\n";
     wpend.push_back(*word);    	    
     nwpend = wpend.size();
     
@@ -887,7 +887,7 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
       }
     }
     
-    cerr<<"HMM2::Tagger tags="<<tags.size()<<" pretags="<<pretags.size()<<" prepretags="<<prepretags.size()<<"\n";
+    //cerr<<"HMM2::Tagger tags="<<tags.size()<<" pretags="<<pretags.size()<<" prepretags="<<prepretags.size()<<"\n";
     //Induction
     for (itag=tags.begin(); itag!=tags.end(); itag++) { //For all tag from the current word
       i=*itag;
@@ -896,11 +896,11 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
         for (ktag=prepretags.begin(); ktag!=prepretags.end(); ktag++) {
            k2=*ktag;
 	  x = alpha[1-nwpend%2][k2][j]*(td->getA())[k2][j][i]*(td->getB())[j][i][k];
-          cerr<<"HMM2::Tagger Induction x="<<x<<"\n";
-          cerr<<"HMM2::Tagger Induction alpha nwpend2 j i="<<alpha[nwpend%2][j][i]<<"\n";
+          //cerr<<"HMM2::Tagger Induction x="<<x<<"\n";
+          //cerr<<"HMM2::Tagger Induction alpha nwpend2 j i="<<alpha[nwpend%2][j][i]<<"\n";
 	  //x = alpha[1-nwpend%2][j]*(td->getA())[j][i]*(td->getB())[i][k];
 	  if (alpha[nwpend%2][j][i]<=x) {
-          cerr<<"HMM2::Tagger inside nwpend block, nwpend="<<nwpend<<"\n";
+          //cerr<<"HMM2::Tagger inside nwpend block, nwpend="<<nwpend<<"\n";
 	    if (nwpend>1) 
 	      best[nwpend%2][j][i] = best[1-nwpend%2][k2][j];
 	    best[nwpend%2][j][i].push_back(i);
@@ -909,7 +909,7 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
         }
       }
     }
-    cerr<<"HMM2::Tagger alpha best done\n";
+    //cerr<<"HMM2::Tagger alpha best done\n";
     
     //Backtracking
     if (tags.size()==1 && pretags.size()==1) {       
@@ -925,7 +925,7 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
         if (debug)
 	  wcerr<<L"Problem with word '"<<word->get_superficial_form()<<L"' "<<word->get_string_tags()<<L"\n";
       }
-      cerr<<"HMM2::Tagger print best pretag tag size "<<best[nwpend%2][pretag][tag].size()<<"\n";
+      //cerr<<"HMM2::Tagger print best pretag tag size "<<best[nwpend%2][pretag][tag].size()<<"\n";
       for (unsigned t=0; t<best[nwpend%2][pretag][tag].size(); t++) {
 	if (show_all_good_first) {
           cerr<<"HMM2::Tagger print in backtracking good first\n";

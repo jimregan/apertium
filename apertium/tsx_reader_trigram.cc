@@ -38,7 +38,7 @@ TSXReaderTrigram::destroy()
 
 TSXReaderTrigram::TSXReaderTrigram()
 {
-  cerr<<"TSXReaderTrigram::constructor";
+  //cerr<<"TSXReaderTrigram::constructor";
   open_class = &(tdata.getOpenClass());
   forbid_rules = &(tdata.getForbidRules());
   tag_index = &(tdata.getTagIndex());
@@ -83,7 +83,7 @@ TSXReaderTrigram::step()
     parseError(L"unexpected EOF");
   }
   name = XMLParseUtil::towstring(xmlTextReaderConstName(reader));
-  wcerr<<L"TSXReaderTrigram::step name="<<name<<endl;
+  //wcerr<<L"TSXReaderTrigram::step name="<<name<<endl;
   type = xmlTextReaderNodeType(reader);
 }
 
@@ -351,7 +351,7 @@ TSXReaderTrigram::procTagset()
 void
 TSXReaderTrigram::procLabelSequence()
 {
-  cerr<<"TSXReaderTrigram::procLabelSequence\n";
+  //cerr<<"TSXReaderTrigram::procLabelSequence\n";
   TForbidRule forbid_rule;
 
   step();
@@ -399,7 +399,7 @@ TSXReaderTrigram::procLabelSequence()
 void
 TSXReaderTrigram::procForbid()
 {
-  cerr<<"TSXReaderTrigram::forbid\n";
+  //cerr<<"TSXReaderTrigram::forbid\n";
   step();
   while(type != XML_READER_TYPE_END_ELEMENT || name != L"forbid")
   {
@@ -444,7 +444,7 @@ TSXReaderTrigram::procForbid()
 void
 TSXReaderTrigram::procEnforce()
 {
-  cerr<<"TSXReaderTrigram::procenforce\n";
+  //cerr<<"TSXReaderTrigram::procenforce\n";
   int labelset_count = 0;
   TEnforceAfterRule aux;
   while(type != XML_READER_TYPE_END_ELEMENT || name != L"enforce-rules")
@@ -637,7 +637,7 @@ TSXReaderTrigram::write(string const &filename)
     exit(EXIT_FAILURE);
   }
 
-  cerr << "TSXReaderTrigram::write" << endl;
+  //cerr << "TSXReaderTrigram::write" << endl;
   tdata.write(out);
 
   fclose(out);
