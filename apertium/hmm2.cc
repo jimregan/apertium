@@ -755,14 +755,14 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
 	beta[1-t%2].clear();
 	for (itag=tags.begin(); itag!=tags.end(); itag++) {
 	  i=*itag;
-          wcerr<<"itag\n";
+          //wcerr<<"itag\n";
 	  for (jtag=pretags.begin(); jtag!=pretags.end(); jtag++) {
 	    j = *jtag;	      
-            wcerr<<"jtag\n";
+            //wcerr<<"jtag\n";
 	    for (ktag=prepretags.begin(); ktag!=prepretags.end(); ktag++) {
 	      k2 = *ktag;	    
-              wcerr<<"A "<<k2<<" "<<j<<" "<<i<<" :"<<(td->getA())[k2][j][i]<<"\n";
-              wcerr<<"B "<<j<<" "<<i<<" "<<k<<" :"<<(td->getB())[j][i][k]<<"\n"; 
+              //wcerr<<"A "<<k2<<" "<<j<<" "<<i<<" :"<<(td->getA())[k2][j][i]<<"\n";
+              //wcerr<<"B "<<j<<" "<<i<<" "<<k<<" :"<<(td->getB())[j][i][k]<<"\n"; 
 	      beta[1-t%2][k2][j] += (td->getA())[k2][j][i]*(td->getB())[j][i][k]*beta[t%2][j][i];
              // wcerr<<"... beta\n";
 	      xsi2[k2][j][i] += alpha[len-t-1][k2][j]*(td->getA())[k2][j][i]*(td->getB())[j][i][k]*beta[t%2][j][i]/prob;

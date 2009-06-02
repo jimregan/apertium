@@ -428,7 +428,7 @@ TaggerDataTrigram::read(FILE *in)
     int i = Compression::multibyte_read(in);
     int j = Compression::multibyte_read(in);
     int k = Compression::multibyte_read(in);
-    cerr<<"b["<<i<<"]["<<j<<"]["<<k<<"] reading\n";
+    //cerr<<"b["<<i<<"]["<<j<<"]["<<k<<"] reading\n";
     b[i][j][k] = EndianDoubleUtil::read(in);
   }
   //wcerr<<L"TaggerDataTrigram::read  values of b done\n";
@@ -477,7 +477,7 @@ TaggerDataTrigram::write(FILE *out)
     //cerr << "TaggerDataTrigram:: inside forbid rules tagi doneloop\n" << endl;
     Compression::multibyte_write(forbid_rules[i].tagj, out);
    // cerr << "TaggerDataTrigram:: inside forbid rules tagj done loop\n" << endl;
-    wcerr<<L"tagk="<<forbid_rules[i].tagk<<endl;
+    //wcerr<<L"tagk="<<forbid_rules[i].tagk<<endl;
     if(forbid_rules[i].tagk!=-999)
       Compression::multibyte_write(forbid_rules[i].tagk, out);
     else 
