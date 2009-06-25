@@ -126,6 +126,35 @@ SmoothUtilsTrigram::calculate_smoothed_parameters(TaggerDataTrigram& tagger_data
     }
   }
 
+  //cerr<<"Checking that counts2 are correct\n-----------------------------\n";
+  for(int i=0; i<tagger_data.getN(); i++) {
+    for(int j=0; j<tagger_data.getN(); j++) {
+      double sum=0.0;
+      for(int k=0; k<tagger_data.getN(); k++) {
+        sum+=tags_triple[i][j][k];
+      }
+    
+      if (fabs(sum-tags_pairs[i][j])>0.0001) {
+        cerr<<"Error: TRIGRAM sum does not agree for tag "<<UtfConverter::toUtf8(tagger_data.getArrayTags()[i])
+            <<"-"<<UtfConverter::toUtf8(tagger_data.getArrayTags()[j])<<": "<<sum<<" -- "<<tags_pairs[i][j]<<"\n";
+      }
+    }
+  }
+
+  for(int k=0; k<tagger_data.getM(); k++) {
+    for(int i=0; i<tagger_data.getN(); i++) {
+      double sum=0.0;
+      if (tagger_data.getOutput()[k].find(i)!=tagger_data.getOutput()[k].end()) {
+	for(int j=0; j<tagger_data.getN(); j++) {
+            sum+=emis2[j][i][k];
+        }
+        if (fabs(sum-emis[i][k])>0.0001) {
+          cerr<<"Error: TRIGRAM sum does not agree for amb. class "<<k<<" i="<<i<<": "<<sum<<" -- "<<emis[i][k]<<"\n";
+        }
+      }
+    }
+  }
+
   //cerr<<"Calculating smoothed parameters\n----------------------------\n";
 
   for(int i=0; i<tagger_data.getN(); i++) {
