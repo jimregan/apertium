@@ -135,8 +135,8 @@ SmoothUtilsTrigram::calculate_smoothed_parameters(TaggerDataTrigram& tagger_data
       }
     
       if (fabs(sum-tags_pairs[i][j])>0.0001) {
-        cerr<<"Error: TRIGRAM sum does not agree for tag "<<UtfConverter::toUtf8(tagger_data.getArrayTags()[i])
-            <<"-"<<UtfConverter::toUtf8(tagger_data.getArrayTags()[j])<<": "<<sum<<" -- "<<tags_pairs[i][j]<<"\n";
+        cerr<<"Error: TRIGRAM sum does not agree for tag pair "<<i<<","<<j<<": "<<UtfConverter::toUtf8(tagger_data.getArrayTags()[i])
+            <<" - "<<UtfConverter::toUtf8(tagger_data.getArrayTags()[j])<<" : "<<sum<<" -- "<<tags_pairs[i][j]<<"\n";
       }
     }
   }
@@ -149,7 +149,7 @@ SmoothUtilsTrigram::calculate_smoothed_parameters(TaggerDataTrigram& tagger_data
             sum+=emis2[j][i][k];
         }
         if (fabs(sum-emis[i][k])>0.0001) {
-          cerr<<"Error: TRIGRAM sum does not agree for amb. class "<<k<<" i="<<i<<": "<<sum<<" -- "<<emis[i][k]<<"\n";
+          cerr<<"Error: TRIGRAM sum does not agree for amb. class "<<k<<" for tag i="<<i<<" "<<UtfConverter::toUtf8(tagger_data.getArrayTags()[i])<<": "<<sum<<" -- "<<emis[i][k]<<"\n";
         }
       }
     }

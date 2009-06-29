@@ -36,6 +36,7 @@
 #endif
 
 #include <stdio.h>
+#include <limits>
 #include <unistd.h>
 #include <vector>
 #include <algorithm>
@@ -161,16 +162,16 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   MorphoStreamTrigram lexmorfo(is, true, td);
   
   TaggerWord *word=NULL;
-
+/*
   for(k=0; k<M; k++) {
-    classes_ocurrences[k]=1; 
+    classes_ocurrences[k]=0; 
     for (k2=0; k2<M; k2++){
-      classes_pair_ocurrences[k][k2]=1;
+      classes_pair_ocurrences[k][k2]=0;
         for (k3=0; k3<M; k3++)
-	  classes_triple_ocurrences[k][k2][k3]=1;
+	  classes_triple_ocurrences[k][k2][k3]=0;
       }
   }
-
+*/
   set<TTag> tags;
   tags.clear();
   tags.insert(eos);  
@@ -254,6 +255,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
  
   //wcerr<<"Kupiec: tags_count_for_emis done\n";
   //Estimation of the number of times each tag pair occurs
+/*
   for(i=0; i<N; i++){
     tags_count[i]=0;
     for(j=0; j<N; j++){
@@ -263,12 +265,12 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
       for(k=0;k<N;k++){
         tags_triple[i][j][k]=0;
       }        
-      for(k=0;k<N;k++){
+      for(k=0;k<M;k++){ 
         emis2[i][j][k]=0;
       }        
     }
   }
-
+*/
   //wcerr<<"Kupiec: tags_count etc zeroed done\n";
   set<TTag> tags1, tags2, tags3;
   set<TTag>::iterator itag1, itag2, itag3;
@@ -326,7 +328,8 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
         for (itag2=tags2.begin(); itag2!=tags2.end(); itag2++) {
           if (((*itag2)<0)||((*itag2)>=N))
             cerr<<"Error: Tag "<<*itag2<<" out of range\n";
-          emis2[*itag1][*itag2][k2]+=nocurrences;
+          emis2[*itag1][*itag2][k2] += nocurrences;
+          tags_pair_for_emis2[*itag1][*itag2] += nocurrences;
         }
       }
     }
@@ -349,14 +352,15 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   }
 */
 
-  for(i=0; i<N; i++) {
+//jun23
+/*  for(i=0; i<N; i++) {
     for(j=0; j<N; j++) {
       for(k=0; k<M; k++)  {
         tags_pair_for_emis2[i][j] += emis2[i][j][k];
       }
     }
   }
-
+*/
   //wcerr<<"Kupiec: tags_pair_for_emis2 done\n";
 
 
@@ -367,6 +371,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   }
 
   SmoothUtilsTrigram::calculate_smoothed_parameters(*td, tags_count, tags_pairs, tags_triple, classes_ocurrences, emis2, emis, tags_pair_for_emis2, tags_count_for_emis, nw);
+  //SmoothUtilsTrigram::calculate_smoothed_parameters(*td, tags_count_for_emis, tags_pair_for_emis2, tags_triple, classes_ocurrences, emis2, emis, tags_pair_for_emis2, tags_count_for_emis, nw);
   cerr<<" done\n";
 }
 
@@ -397,7 +402,7 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
  
   // Init counters - each event appears at least once. 
   // Espected likelihood estimate (ELE) with a fixed initial count of 1
-  for(i=0; i<N; i++) {
+/*  for(i=0; i<N; i++) {
     tags_count[i]=0;
     tags_count_for_emis[i]=0;
 
@@ -421,7 +426,7 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
       }
     }  
   }
- 
+*/ 
   TTag tag1, tag2, tag3;  
   tag1 = eos; // The first seen tag is the end-of-sentence tag
   tag2 = eos;
@@ -430,8 +435,8 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
   word_tagged = stream_tagged.get_next_word();
   word_untagged = stream_untagged.get_next_word();
   while(word_tagged) {
-    //wcerr<<*word_tagged;
-    //wcerr<<L" -- "<<*word_untagged<<L"\n"; 
+   // wcerr<<*word_tagged;
+   // wcerr<<L" -- "<<*word_untagged<<L"\n"; 
 
     if (word_tagged->get_superficial_form()!=word_untagged->get_superficial_form()) {              
       wcerr<<L"\nTagged text (.tagged) and analyzed text (.untagged) streams are not aligned.\n";
@@ -441,7 +446,7 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
       exit(1);
     }
 
-    if (++nw%100==0) wcerr<<L'.'<<flush; 
+    //if (++nw%100==0) wcerr<<L'.'<<flush; 
     
     tag3 = tag2;
     tag2 = tag1;
@@ -452,8 +457,10 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
     }
 
     if (word_tagged->get_tags().size()==0) // Unknown word
-      tag1 = -1;
+    {
+	tag1 = -1; 
       //tag1=td->getTagIndex()[L"TAG_kUNDEF"];
+    }
     else if (word_tagged->get_tags().size()>1) // Ambiguous word
       wcerr<<L"Error in tagged text. An ambiguous word was found: "<<word_tagged->get_superficial_form()<<L"\n";
     else
@@ -462,8 +469,8 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
 
     if ((tag1>=0) && (tag2>=0) && (tag3>0)){
       tags_triple[tag3][tag2][tag1]++;
-      tags_pair[tag2][tag1]++;
-      tags_count[tag2]++;
+      tags_pair[tag3][tag2]++;
+      tags_count[tag3]++;
     }
     
 
@@ -490,6 +497,7 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
         tags_count_for_emis[tag1]++;
         tags_pair_for_emis2[tag2][tag1]++;
         ambclass_count[k]++;
+	//cerr<<"Warning: updating amb counts\n";
       } else {
         cerr<<"Warning: Ambiguity class "<<k<<" is emmited from tag "<<tag1<<" but it should not\n";
       }
@@ -515,6 +523,7 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
 void
 HMM2::apply_rules()
 {
+
   //cerr<<"HMM2::applyrules\n";
   vector<TForbidRule> &forbid_rules = td->getForbidRules();
   vector<TEnforceAfterRule> &enforce_rules = td->getEnforceRules();
@@ -579,6 +588,7 @@ HMM2::apply_rules()
     }
   }
   //cerr<<"HMM2::applyrules Normalize probs done\n";
+
 }
 
 void 
@@ -685,6 +695,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
 
   alpha[0].clear();      
   alpha[0][tag][tag] = 1;      //PROBLEM AREA: CHECK
+  alpha[1][tag][tag] = 1;      //PROBLEM AREA: CHECK
 
   word = morpho_stream.get_next_word();
 
@@ -736,18 +747,18 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
     if (!(tags.size()==1 && pretags.size()==1)) {
       pending.push_back(tags);
     } else {  // word and previous word are unambiguous
-      wcerr<<L"BW:: two unambiguous words\n";
+      //wcerr<<L"BW:: two unambiguous words\n";
       tag = *tags.begin(); 
       pretag = *pretags.begin(); 
       beta[0].clear();
       beta[0][pretag][tag] = 1;   
       prob = alpha[len][pretag][tag];         
       loli -= log(prob);  
-      wcerr<<L"prob="<<prob<<L" loli="<<loli<<L"\n";
+      //wcerr<<L"prob="<<prob<<L" loli="<<loli<<L"\n";
       
       //wcerr<<L"BW:: backward prob start\n";
       for (t=0; t<len-1; t++) {  // loop from T-1 to 0	
-        wcerr<<L"t = "<<t<<L"\n";
+        //wcerr<<L"t = "<<t<<L"\n";
         pretags = pending.back();
         prepretags = pending[pending.size()-2]; //*(pending.end() - 2)
 	pending.pop_back();
@@ -1024,4 +1035,21 @@ HMM2::find_similar_ambiguity_class(set<TTag> c) {
     }
   }
   return ret;
+}
+
+double 
+HMM2::log_add (double x, double y) {
+  if (x < y) {
+    double temp;
+    temp = x;
+    x = y;
+    y = temp;
+  }
+  if (y == -numeric_limits<double>::infinity()) {  //log(0) = - Infinity
+    cerr<<"log_add: one of the log probs is null"<<endl;
+    return x;
+  } else {
+    double diff = y - x;
+    return x + log(1.0 + exp(diff));
+  }
 }

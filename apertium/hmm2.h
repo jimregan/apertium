@@ -173,6 +173,7 @@ public:
    void print_ambiguity_classes();
 
    void filter_ambiguity_classes(FILE *in, FILE *out);
+   double log_add (double x, double y);
 };
 
 #endif
