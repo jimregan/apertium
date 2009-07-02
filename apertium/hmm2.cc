@@ -489,8 +489,10 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
       tags = word_untagged->get_tags();
     }
 
+    //if(tag1>=N) cerr<<"Whoops, tag greater than "<<N<<": "<<tag1<<" k="<<k<<"\n";
+    //if(tag1<0) cerr<<"Whoops, tag less than 0: "<<tag1<<" k="<<k<<"\n";
     k=output[tags];
-    if(tag1>=0){
+    if(tag2>=0 && tag1>=0){
       if (output[k].find(tag1)!=output[k].end()) {
 	emis2[tag2][tag1][k]++;
         emis[tag1][k]++;
@@ -508,6 +510,9 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
     delete word_untagged;
     word_untagged=stream_untagged.get_next_word();       
   }
+  //tags_pair[tag2][tag1]++;
+  //tags_count[tag2]++;
+  //tags_count[tag1]++;
 
   SmoothUtilsTrigram::calculate_smoothed_parameters(*td, tags_count, tags_pair ,tags_triple,  ambclass_count, emis2, emis, tags_pair_for_emis2, tags_count_for_emis, nw);
 
@@ -737,9 +742,13 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
         for (ktag=prepretags.begin(); ktag!=prepretags.end(); ktag++) {
            k2=*ktag;
 	   alpha[len][j][i] += alpha[len-1][k2][j]*(td->getA())[k2][j][i]*(td->getB())[j][i][k];
+	   cerr<<alpha[len][j][i]<<"="<<alpha[len-1][k2][j]<<"x"<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"\n";
 	}
       if (alpha[len][j][i]==0)
-        alpha[len][j][i]=DBL_MIN;
+	{
+          //alpha[len][j][i]=DBL_MIN;
+	  cerr<<"DBL_MIN="<<alpha[len][j][i]<<"\n";
+	}
       }
     }
 
