@@ -446,7 +446,7 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
       exit(1);
     }
 
-    //if (++nw%100==0) wcerr<<L'.'<<flush; 
+    if (++nw%100==0) wcerr<<L'.'<<flush; 
     
     tag3 = tag2;
     tag2 = tag1;
