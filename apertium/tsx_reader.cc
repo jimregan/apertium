@@ -373,46 +373,30 @@ TSXReader::procLabelSequence()
     parseError(L"<label-item> tag expected");
   }
   forbid_rule.tagj = (*tag_index)[L"TAG_" + attrib(L"label")];
-
-  step();
-  while(name == L"#text" || name == L"#comment")
-  {
-    step();
-  }
-  if(name == L"label-item")
-  {
-    forbid_rule.tagk = (*tag_index)[L"TAG_" + attrib(L"label")];    //optional item
-    step();     //one extra step needed
-  }
-  else
-    forbid_rule.tagk = -999;      //to check for no value
-
+  
   forbid_rules->push_back(forbid_rule);
 }
 
 void
 TSXReader::procForbid()
 {
-  step();
   while(type != XML_READER_TYPE_END_ELEMENT || name != L"forbid")
   {
+    step();
     if(name == L"label-sequence")
     {
       if(type != XML_READER_TYPE_END_ELEMENT)
       {
 	procLabelSequence();
-	//step() called in procLabelSequence
       }
     }
     else if(name == L"#text")
     {
       // do nothing
-      step();
     }
     else if(name == L"#comment")
     {
       // do nothing
-      step();
     }
     else if(name == L"forbid")
     {
@@ -424,12 +408,10 @@ TSXReader::procForbid()
       {
 	parseError(L"Unexpected '" + name + L"' open tag");
       }
-      step();
     }
     else
     {
       parseError(L"Unexpected '" + name + L"' tag");
-      step();
     }
   }  
 }
@@ -437,7 +419,6 @@ TSXReader::procForbid()
 void
 TSXReader::procEnforce()
 {
-  int labelset_count = 0;
   TEnforceAfterRule aux;
   while(type != XML_READER_TYPE_END_ELEMENT || name != L"enforce-rules")
   {
@@ -456,21 +437,13 @@ TSXReader::procEnforce()
     }
     else if(name == L"label-set")
     {
-      if(type != XML_READER_TYPE_END_ELEMENT)
-        labelset_count++; 
+      // do nothing
     }
-    else if(name == L"label-item" && labelset_count == 1)
+    else if(name == L"label-item")
     {
       if(type != XML_READER_TYPE_END_ELEMENT)
       {
 	aux.tagsj.push_back((*tag_index)[L"TAG_" + attrib(L"label")]);
-      }
-    }
-    else if(name == L"label-item" && labelset_count == 2)
-    {
-      if(type != XML_READER_TYPE_END_ELEMENT)
-      {
-        aux.tagsk.push_back((*tag_index)[L"TAG_" + attrib(L"label")]);
       }
     }
     else if(name == L"#text")
