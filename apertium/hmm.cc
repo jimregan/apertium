@@ -406,7 +406,7 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string 
         tags_count_for_emis[tag1]++;
         ambclass_count[k]++;
       } else {
-        cerr<<"Warning: Ambiguity class "<<k<<" is emmited from tag "<<tag1<<" but it should not\n";
+        wcerr<<"LWarning: Ambiguity class "<<k<<L" is emmited from tag "<<tag1<<L" but it should not\n";
       }
     }
                    
