@@ -52,6 +52,7 @@ TaggerDataTrigram::destroy()
     	{
       		delete [] a[i][j];
     	}
+      delete [] a[i];
     }
     delete [] a;
   }
@@ -65,6 +66,7 @@ TaggerDataTrigram::destroy()
 	{
       		delete [] b[i][j];
 	}
+      delete [] b[i];
     }
     delete [] b;
   }

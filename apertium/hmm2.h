@@ -72,6 +72,7 @@ private:
     *  @return a known ambiguity class 
     */
    set<TTag> find_similar_ambiguity_class(set<TTag> c);
+   double log_add (double x, double y);
    
 public:  
  
@@ -173,7 +174,6 @@ public:
    void print_ambiguity_classes();
 
    void filter_ambiguity_classes(FILE *in, FILE *out);
-   double log_add (double x, double y);
 };
 
 #endif

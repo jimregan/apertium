@@ -465,8 +465,8 @@ HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string
 
     if (word_tagged->get_tags().size()==0) // Unknown word
     {
-	tag1 = -1; 
-      //tag1=td->getTagIndex()[L"TAG_kUNDEF"];
+	//tag1 = -1; 
+        tag1=td->getTagIndex()[L"TAG_kUNDEF"];
     }
     else if (word_tagged->get_tags().size()>1) // Ambiguous word
       wcerr<<L"Error in tagged text. An ambiguous word was found: "<<word_tagged->get_superficial_form()<<L"\n";
@@ -702,8 +702,11 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   tag = eos;
   tags.clear();
   tags.insert(tag);
+  //k = output[tags];    
   pending.push_back(tags);
   pending.push_back(tags);
+  //ambclass_count[k]++;
+  //ambclass_count[k]++;
 
   alpha[0].clear();      
   alpha[1].clear();      
