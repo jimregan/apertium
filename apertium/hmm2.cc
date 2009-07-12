@@ -177,9 +177,12 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   tags.insert(eos);  
   k1=output[tags]; //The first tag (ambiguity class) seen is the end-of-sentence
   classes_ocurrences[k1]++;
+  k2 = k1;
+  classes_ocurrences[k2]++;
+  classes_pair_ocurrences[k1][k2]++;  
   
   //We count for each ambiguity class the number of ocurrences
-  word = lexmorfo.get_next_word();
+  /*word = lexmorfo.get_next_word();
 
     if (++nw%10000==0) wcerr<<L'.'<<flush;
    
@@ -205,7 +208,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
 
     classes_ocurrences[k2]++;
     classes_pair_ocurrences[k1][k2]++;  //k1 followed by k2
-    delete word;
+    delete word; */
     word=lexmorfo.get_next_word();
 
   while((word)) {
@@ -703,6 +706,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   pending.push_back(tags);
 
   alpha[0].clear();      
+  alpha[1].clear();      
   alpha[0][tag][tag] = 1;      //PROBLEM AREA: CHECK
   alpha[1][tag][tag] = 1;      //PROBLEM AREA: CHECK
 
@@ -846,6 +850,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
       tags.insert(tag);
       pending.push_back(tags);
       alpha[0].clear();
+      alpha[1].clear();
       alpha[0][pretag][tag] = 1;
       alpha[1][pretag][tag] = 1;
     
