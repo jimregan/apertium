@@ -199,7 +199,11 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
 
     k2=output[tags];
 
-    classes_ocurrences[k1]++;
+    classes_ocurrences[k1]++;   //for 2nd eos
+    classes_pair_ocurrences[k1][k1]++;  //for 2nd eos
+    classes_triple_ocurrences[k1][k1][k2]++;  //for 2nd eos
+
+    classes_ocurrences[k2]++;
     classes_pair_ocurrences[k1][k2]++;  //k1 followed by k2
     delete word;
     word=lexmorfo.get_next_word();
@@ -224,8 +228,8 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
 
     k3=output[tags];
 
-    classes_ocurrences[k1]++;
-    classes_pair_ocurrences[k1][k2]++;  //k1 followed by k2
+    classes_ocurrences[k3]++;
+    classes_pair_ocurrences[k2][k3]++;  //k1 followed by k2
     classes_triple_ocurrences[k1][k2][k3]++;  //k1 followed by k2 followed by k3
     delete word;
     word=lexmorfo.get_next_word();
@@ -717,6 +721,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
     if (tags.size()==0) { // This is an unknown word
       tags = td->getOpenClass();
       ndesconocidas++;
+      //cerr<<"unknown\n";
     }
     
     if (output.has_not(tags)) {
@@ -729,6 +734,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
     }
     
     k = output[tags];    
+    //wcerr<<word->get_string_tags()<<L"\n";
     ambclass_count[k]++;
     len = pending.size();
     alpha[len].clear();     
@@ -741,14 +747,23 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
          j=*jtag;
         for (ktag=prepretags.begin(); ktag!=prepretags.end(); ktag++) {
            k2=*ktag;
+           //if((td->getA())[k2][j][i]==0 || (td->getB())[j][i][k]==0) { cerr<<"WHOOPS\n"; exit(1); }
 	   alpha[len][j][i] += alpha[len-1][k2][j]*(td->getA())[k2][j][i]*(td->getB())[j][i][k];
-	   cerr<<alpha[len][j][i]<<"="<<alpha[len-1][k2][j]<<"x"<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"\n";
+           //cerr<<"len "<<len<<": k2 "<<k2<<" j "<<j<<" i "<<i<<"\n";
+	   //cerr<<alpha[len][j][i]<<"+="<<alpha[len-1][k2][j]<<"x"<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"\n";
 	}
-      if (alpha[len][j][i]==0)
-	{
-          //alpha[len][j][i]=DBL_MIN;
-	  cerr<<"DBL_MIN="<<alpha[len][j][i]<<"\n";
-	}
+      /*  if(isnan(alpha[len][j][i])) {
+          cerr<<"alpha isnan "<<alpha[len][j][i]<<"+="<<alpha[len-1][k2][j]<<"x"<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"\n";
+          exit(1);
+        } 
+	if(isinf(alpha[len][j][i])) {
+          cerr<<"alpha isinf "<<alpha[len][j][i]<<"+="<<alpha[len-1][k2][j]<<"x"<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"\n";
+          exit(1); 
+        } 
+        if (alpha[len][j][i]==0){
+          alpha[len][j][i]=DBL_MIN;
+	  //cerr<<"DBL_MIN="<<alpha[len][j][i]<<"\n";
+	} */ 
       }
     }
 
@@ -761,7 +776,8 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
       pretag = *pretags.begin(); 
       beta[0].clear();
       beta[0][pretag][tag] = 1;   
-      prob = alpha[len][pretag][tag];         
+      prob = alpha[len][pretag][tag];
+      if(prob==0) exit(1);         
       loli -= log(prob);  
       //wcerr<<L"prob="<<prob<<L" loli="<<loli<<L"\n";
       
@@ -784,9 +800,21 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
               //wcerr<<"A "<<k2<<" "<<j<<" "<<i<<" :"<<(td->getA())[k2][j][i]<<"\n";
               //wcerr<<"B "<<j<<" "<<i<<" "<<k<<" :"<<(td->getB())[j][i][k]<<"\n"; 
 	      beta[1-t%2][k2][j] += (td->getA())[k2][j][i]*(td->getB())[j][i][k]*beta[t%2][j][i];
-             // wcerr<<"... beta\n";
+	    /*  if(isnan(beta[1-t%2][k2][j])) {
+                cerr<<"beta isnan "<<beta[1-t%2][k2][j]<<"+="<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"x"<<beta[t%2][j][i]<<"\n";
+              }
+	      if(isinf(beta[1-t%2][k2][j])) {
+                cerr<<"beta isinf "<<beta[1-t%2][k2][j]<<"+="<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"x"<<beta[t%2][j][i]<<"\n";
+              }  */
 	      xsi2[k2][j][i] += alpha[len-t-1][k2][j]*(td->getA())[k2][j][i]*(td->getB())[j][i][k]*beta[t%2][j][i]/prob;
-             // wcerr<<"... xsi2\n";
+            /*  if(isnan(xsi2[k2][j][i])) {
+                cerr<<"xsi2 isnan "<<xsi2[k2][j][i]<<"+="<<alpha[len-t-1][k2][j]<<"x"<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"x"<<beta[t%2][j][i]<<"by"<<prob<<"\n";
+                exit(1);
+              }		
+              if(isinf(xsi2[k2][j][i])) {
+                cerr<<"xsi2 isinf "<<xsi2[k2][j][i]<<"+="<<alpha[len-t-1][k2][j]<<"x"<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"x"<<beta[t%2][j][i]<<"by"<<prob<<"\n";
+                exit(1);
+              }	*/	
 	    }
   	    gamma2[j][i] +=  alpha[len-t][j][i]*beta[t%2][j][i]/prob;	       
   	    gamma22[j] +=  alpha[len-t][j][i]*beta[t%2][j][i]/prob;	//sum of gamma2[j][i] over all i = tag_count 
@@ -794,10 +822,21 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
 	    phi2[j][i][k] += alpha[len-t][j][i]*beta[t%2][j][i]/prob;               
 	    phi[i][k] += alpha[len-t][j][i]*beta[t%2][j][i]/prob;               
             //wcerr<<"... gamma or phi\n";
+          /*  if(isnan(gamma2[j][i])) cerr<<"gamma2isnan\n";
+            if(isinf(gamma2[j][i])) cerr<<"gamma2isinf\n";
+            if(isnan(gamma22[j])) cerr<<"gamma22isnan\n";
+            if(isnan(gamma22[j])) cerr<<"gamma22isnan\n";
+            if(isnan(gamma[i])) cerr<<"gammaisnan\n";
+            if(isnan(gamma[i])) cerr<<"gammaisnan\n";
+            if(isinf(phi2[j][i][k])) cerr<<"phi2isinf\n";
+            if(isinf(phi2[j][i][k])) cerr<<"phi2isinf\n";
+            if(isinf(phi[i][k])) cerr<<"phiisinf\n";
+            if(isinf(phi[i][k])) cerr<<"phiisinf\n";  */
 	  }
 	}
         tags=pretags;
       }
+      pending.pop_back(); //ADASDADASDASDASJKLD
 	
       //wcerr<<L"BW:: backward prob end\n";
       pretags.clear();
@@ -808,6 +847,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
       pending.push_back(tags);
       alpha[0].clear();
       alpha[0][pretag][tag] = 1;
+      alpha[1][pretag][tag] = 1;
     
       if((corpus_length>0)&&(nw>=corpus_length)&&(tag==eos)) {
         cerr<<nw<<" ";
@@ -821,7 +861,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   }  
 
   //wcerr<<L"BW:: out of loop\n";
-  if ((pending.size()>1) || ((tag!=eos)&&(tag != (td->getTagIndex())[L"TAG_kEOF"])&&(pretag!=eos)&&(pretag != (td->getTagIndex())[L"TAG_kEOF"])) ) 
+  if ((pending.size()>2) || ((tag!=eos)&&(tag != (td->getTagIndex())[L"TAG_kEOF"])&&(pretag!=eos)&&(pretag != (td->getTagIndex())[L"TAG_kEOF"])) ) 
     wcerr<<L"Warning: Thee las tag is not the end-of-sentence-tag\n";
   
   
@@ -833,6 +873,8 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
 
   SmoothUtilsTrigram::calculate_smoothed_parameters(*td, gamma22, gamma2, xsi2, ambclass_count, phi2, phi, gamma2, gamma,  nw);
 
+  //print_A();
+  //print_B();
   wcerr<<L"Log="<<loli<<L"\n";
 }
 
