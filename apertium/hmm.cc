@@ -369,8 +369,8 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string 
     }
 
     if (word_tagged->get_tags().size()==0) // Unknown word
-      tag1 = -1;
-      //tag1=td->getTagIndex()[L"TAG_kUNDEF"];
+      //tag1 = -1;
+      tag1=td->getTagIndex()[L"TAG_kUNDEF"];
     else if (word_tagged->get_tags().size()>1) // Ambiguous word
       wcerr<<L"Error in tagged text. An ambiguous word was found: "<<word_tagged->get_superficial_form()<<L"\n";
     else
