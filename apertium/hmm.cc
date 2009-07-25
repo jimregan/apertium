@@ -161,9 +161,9 @@ HMM::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsfi
   TaggerWord *word=NULL;
 
   for(k=0; k<M; k++) {
-    classes_ocurrences[k]=1; 
+    classes_ocurrences[k]=0; 
     for (k2=0; k2<M; k2++)
-      classes_pair_ocurrences[k][k2]=1;
+      classes_pair_ocurrences[k][k2]=0;
   }
 
   set<TTag> tags;
@@ -193,7 +193,7 @@ HMM::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsfi
 
     k2=output[tags];
 
-    classes_ocurrences[k1]++;
+    classes_ocurrences[k2]++;
     classes_pair_ocurrences[k1][k2]++;  //k1 followed by k2
     delete word;
     word=lexmorfo.get_next_word();
