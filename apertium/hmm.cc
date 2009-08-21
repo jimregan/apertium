@@ -473,7 +473,7 @@ HMM::apply_rules()
     (td->getA())[forbid_rules[i].tagi][forbid_rules[i].tagj] = ZERO;
   }
 
-  for(i=0; i<(int) enforce_rules.size(); i++) {
+  for(i=0; i<(int) enforce_rules.size(); i++) {        //Wrong??
     for(j=0; j<N; j++) {
       found = false;
       for (j2=0; j2<(int) enforce_rules[i].tagsj.size(); j2++) {

@@ -336,6 +336,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
           if (((*itag2)<0)||((*itag2)>=N))
             cerr<<"Error: Tag "<<*itag2<<" out of range\n";
           emis2[*itag1][*itag2][k2] += nocurrences;
+          //emis[*itag2][k2] += nocurrences;
           tags_pair_for_emis2[*itag1][*itag2] += nocurrences;
         }
       }
@@ -560,7 +561,7 @@ HMM2::apply_rules()
   }
   //cerr<<"HMM2::applyrules forbid rules done\n";
 
-  for(i=0; i<(int) enforce_rules.size(); i++) {
+  for(i=0; i<(int) enforce_rules.size(); i++) {        //Wrong??
     for(j=0; j<N; j++) {
       for(k=0; k<N; k++) {
         found = false;
