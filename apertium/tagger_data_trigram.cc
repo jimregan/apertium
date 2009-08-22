@@ -19,7 +19,7 @@
 //#include <apertium/hmm2.h>
 //#include "hmm2.h"
 //#include <apertium/tagger_data_trigram.h>
-#include "tagger_data_trigram.h"
+#include <apertium/tagger_data_trigram.h>
 #include <lttoolbox/compression.h>
 #include <apertium/endian_double_util.h>
 #include <apertium/string_utils.h>
@@ -409,7 +409,7 @@ TaggerDataTrigram::read(FILE *in)
     }
   }
 
-  wcerr<<L"TaggerDataTrigram::read read a done\n";
+  //wcerr<<L"TaggerDataTrigram::read read a done\n";
   // initializing b matix
   for(int i = 0 ; i != N; i++)
   {

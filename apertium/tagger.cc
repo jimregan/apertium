@@ -28,7 +28,7 @@
 #include <apertium/tsx_reader.h>
 #include "tsx_reader_trigram.h"
 #include <apertium/tagger_word.h>
-#include "hmm2.h"
+#include <apertium/hmm2.h>
 
 #include <cstdio>
 #include <fstream>
