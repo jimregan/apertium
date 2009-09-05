@@ -26,8 +26,11 @@
 #include <getopt.h>
 
 #include <apertium/hmm.h>
+#include <apertium/hmm2.h>
 #include <apertium/tagger_data.h>
+#include <apertium/tagger_data_trigram.h>
 #include <apertium/tsx_reader.h>
+#include <apertium/tsx_reader_trigram.h>
 #include <apertium/string_utils.h>
 
 using namespace Apertium;
@@ -35,7 +38,6 @@ using namespace Apertium;
 using namespace std;
 
 //Global vars
-TaggerData tagger_data;
 TTag eos; //End-of-sentence tag
 
 void check_file(FILE *f, const string& path) {
@@ -48,9 +50,10 @@ void check_file(FILE *f, const string& path) {
 void help(char *name) {
   cerr<<"Forbid and enforce rules are applied to the given HMM paramters\n\n";
   cerr<<"USAGE:\n";
-  cerr<<name<<" --filein filein.prob --fileout fileout.prob --tsxfile file.tsx\n\n";
+  cerr<<name<<" --trigram --filein filein.prob --fileout fileout.prob --tsxfile file.tsx\n\n";
 
   cerr<<"ARGUMENTS: \n"
+      <<"   --trigram|-y: To set TRIGRAM mode of operation\n\n"
       <<"   --filein|-i: To specify the file with the HMM parameter to process\n\n"
       <<"   --fileout|-o: To specify the file to which the HMM will be writen\n\n"
       <<"   --tsxfile|-x: File containing the rules to apply\n\n"
@@ -61,6 +64,8 @@ int main(int argc, char* argv[]) {
   string filein="";
   string fileout="";
   string filetsx="";
+  enum Mode{DEFAULT,TRIGRAM_MODE};
+  int mode=DEFAULT;
 
   int c;
 #if HAVE_GETOPT_LONG
@@ -79,12 +84,13 @@ int main(int argc, char* argv[]) {
 	{"filein",    required_argument, 0, 'i'},
 	{"fileout",   required_argument, 0, 'o'},
 	{"tsxfile",   required_argument, 0, 'x'},
+	{"trigram",    no_argument,      0, 'y'},
 	{0, 0, 0, 0}
       };
 
-    c=getopt_long(argc, argv, "i:o:x:hv",long_options, &option_index);
+    c=getopt_long(argc, argv, "yi:o:x:hv",long_options, &option_index);
 #else
-    c=getopt(argc, argv, "i:o:x:hv");
+    c=getopt(argc, argv, "yi:o:x:hv");
 #endif
     if (c==-1)
       break;
@@ -101,6 +107,9 @@ int main(int argc, char* argv[]) {
       exit(EXIT_SUCCESS);
     case 'x':
       filetsx=optarg;
+      break;
+    case 'y':
+      mode=TRIGRAM_MODE;
       break;
     case 'v':
       cerr<<"LICENSE:\n\n"
@@ -150,28 +159,55 @@ int main(int argc, char* argv[]) {
 
   fin=fopen(filein.c_str(), "rb");
   check_file(fin, filein);
+  if(mode==DEFAULT){
+    cerr<<"Reading apertium-tagger data from file '"<<filein<<"' ... "<<flush;
+    TaggerData tagger_data;
+    tagger_data.read(fin);
+    fclose(fin);
+    cerr<<"done.\n";
 
-  cerr<<"Reading apertium-tagger data from file '"<<filein<<"' ... "<<flush;
-  tagger_data.read(fin);
-  fclose(fin);
-  cerr<<"done.\n";
+    cerr<<"Reading apertium-tagger definition from file '"<<filetsx<<"' ... "<<flush;
+    TSXReader treader;
+    treader.read(filetsx);
+    cerr<<"done.\n";
+    
+    tagger_data.setForbidRules(treader.getTaggerData().getForbidRules());
+    tagger_data.setEnforceRules(treader.getTaggerData().getEnforceRules());
+    tagger_data.setPreferRules(treader.getTaggerData().getPreferRules());
 
-  cerr<<"Reading apertium-tagger definition from file '"<<filetsx<<"' ... "<<flush;
-  TSXReader treader;
-  treader.read(filetsx);
-  cerr<<"done.\n";
-  
-  tagger_data.setForbidRules(treader.getTaggerData().getForbidRules());
-  tagger_data.setEnforceRules(treader.getTaggerData().getEnforceRules());
-  tagger_data.setPreferRules(treader.getTaggerData().getPreferRules());
+    HMM hmm(&tagger_data);
+    hmm.apply_rules();
 
-  HMM hmm(&tagger_data);
-  hmm.apply_rules();
+    fout=fopen(fileout.c_str(), "wb");
+    check_file(fout, fileout);
+    cerr<<"Writing apertium-tagger data to file '"<<fileout<<"' ... "<<flush;
+    tagger_data.write(fout);
+    fclose(fout);
+    cerr<<"done.\n";
+  } else if(mode==TRIGRAM_MODE){
+    cerr<<"Reading apertium-tagger data from file '"<<filein<<"' ... "<<flush;
+    TaggerDataTrigram tagger_data;
+    tagger_data.read(fin);
+    fclose(fin);
+    cerr<<"done.\n";
 
-  fout=fopen(fileout.c_str(), "wb");
-  check_file(fout, fileout);
-  cerr<<"Writing apertium-tagger data to file '"<<fileout<<"' ... "<<flush;
-  tagger_data.write(fout);
-  fclose(fout);
-  cerr<<"done.\n";
+    cerr<<"Reading apertium-tagger definition from file '"<<filetsx<<"' ... "<<flush;
+    TSXReaderTrigram treader;
+    treader.read(filetsx);
+    cerr<<"done.\n";
+    
+    tagger_data.setForbidRules(treader.getTaggerData().getForbidRules());
+    tagger_data.setEnforceRules(treader.getTaggerData().getEnforceRules());
+    tagger_data.setPreferRules(treader.getTaggerData().getPreferRules());
+
+    HMM2 hmm(&tagger_data);
+    hmm.apply_rules();
+
+    fout=fopen(fileout.c_str(), "wb");
+    check_file(fout, fileout);
+    cerr<<"Writing apertium-tagger data to file '"<<fileout<<"' ... "<<flush;
+    tagger_data.write(fout);
+    fclose(fout);
+    cerr<<"done.\n";
+  }
 }
