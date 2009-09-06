@@ -180,6 +180,9 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   k2 = k1;
   classes_ocurrences[k2]++;
   classes_pair_ocurrences[k1][k2]++;  
+  classes_pair_ocurrences[k1][k1]++;  
+  classes_triple_ocurrences[k1][k1][k1]++; //HACK 
+  classes_triple_ocurrences[k1][k1][k2]++;  //HACK
   
   //We count for each ambiguity class the number of ocurrences
   /*word = lexmorfo.get_next_word();
