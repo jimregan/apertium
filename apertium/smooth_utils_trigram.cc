@@ -131,7 +131,7 @@ SmoothUtilsTrigram::calculate_smoothed_parameters(TaggerDataTrigram& tagger_data
     for(int j=0; j<tagger_data.getN(); j++) {
       double sum=0.0;
       for(int k=0; k<tagger_data.getN(); k++) {
-        sum+=tags_triple[i][j][k];
+        sum+=tags_triple[k][i][j];
       }
     
       if (fabs(sum-tags_pairs[i][j])>0.0001) {
