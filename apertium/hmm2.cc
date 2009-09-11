@@ -729,7 +729,6 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   //alpha[3][tag][tag] = 1;      //HACK
 
   word = morpho_stream.get_next_word();
-
   while (word) {   
     //wcerr<<L"BW word: "<<word->get_superficial_form()<<L"\n";
 
