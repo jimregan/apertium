@@ -143,7 +143,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   //cerr<<"HMM2::Kupiec\n";
   int N = td->getN();
   int M = td->getM();
-  int i, j, k, k1, k2, k3, nw=0;
+  int i, j, k, k1, k2, k3, nw=0, count=0;
   map<int, double> classes_ocurrences; // M
   map<int, map<int, double> > classes_pair_ocurrences; // MxM
   map<int, map<int,  map<int, double> > > classes_triple_ocurrences; // MxMxM
@@ -155,6 +155,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   map<int, map<int,  map<int, double> > > tags_triple; //NxNxN
   map<int, map<int, double> > emis; //NxM
   map<int, map<int,  map<int, double> > > emis2; //NxNxM
+  //set< pair<int,int> > kset;
 
 
   Collection &output = td->getOutput();
@@ -176,13 +177,10 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   tags.clear();
   tags.insert(eos);  
   k1=output[tags]; //The first tag (ambiguity class) seen is the end-of-sentence
-  //classes_ocurrences[k1]++;
+  classes_ocurrences[k1]++;
   k2 = k1;
-  //classes_ocurrences[k2]++;
-  //classes_pair_ocurrences[k1][k2]++;  
-  //classes_pair_ocurrences[k1][k1]++;  
-  //classes_triple_ocurrences[k1][k1][k2]++; //HACK 
-  //classes_triple_ocurrences[k1][k1][k2]++;  //HACK
+  classes_ocurrences[k2]++;
+  classes_pair_ocurrences[k1][k2]++;  
   
   //We count for each ambiguity class the number of ocurrences
   /*word = lexmorfo.get_next_word();
@@ -237,6 +235,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
     classes_ocurrences[k3]++;
     classes_pair_ocurrences[k2][k3]++;  //k1 followed by k2
     classes_triple_ocurrences[k1][k2][k3]++;  //k1 followed by k2 followed by k3
+    //tset.insert(new pair
     delete word;
     word=lexmorfo.get_next_word();
 
@@ -251,7 +250,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   }
  
   
-  //wcerr<<"Kupiec word: Out of while loop\n";
+  wcerr<<"Kupiec word: Out of while loop\n";
 
   //Estimation of the number of time each tags occurs in the training text
   for(i=0; i<N; i++) {  
@@ -263,7 +262,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   }
 
  
-  //wcerr<<"Kupiec: tags_count_for_emis done\n";
+  wcerr<<"Kupiec: tags_count_for_emis done\n";
   //Estimation of the number of times each tag pair occurs
 /*
   for(i=0; i<N; i++){
@@ -281,27 +280,52 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
     }
   }
 */
-  //wcerr<<"Kupiec: tags_count etc zeroed done\n";
+  wcerr<<"Kupiec: tags_count etc zeroed done\n";
+  wcerr<<M<<endl;
   set<TTag> tags1, tags2, tags3;
   set<TTag>::iterator itag1, itag2, itag3;
+  /* 
   for(k1=0; k1<M; k1++) {
-    tags1=output[k1];
+    //tags1=output[k1];
     for(k2=0; k2<M; k2++) {
-      tags2=output[k2];
+      //tags2=output[k2];
       for(k3=0; k3<M; k3++) {
-        tags3=output[k3];
-        double nocurrences=classes_triple_ocurrences[k1][k2][k3]/((double)(tags1.size()*tags2.size()*tags3.size()));
-        for (itag1=tags1.begin(); itag1!=tags1.end(); itag1++) {
-	  if (((*itag1)<0)||((*itag1)>=N))
-            cerr<<"Error: Tag "<<*itag1<<" out of range\n";
-          for (itag2=tags2.begin(); itag2!=tags2.end(); itag2++) {
-            if (((*itag2)<0)||((*itag2)>=N))
-              cerr<<"Error: Tag "<<*itag2<<" out of range\n";
-            for (itag3=tags3.begin(); itag3!=tags3.end(); itag3++) {
-              if (((*itag3)<0)||((*itag3)>=N))
-                cerr<<"Error: Tag "<<*itag3<<" out of range\n";
+        //tags3=output[k3];
+        // double nocurrences=classes_triple_ocurrences[k1][k2][k3]/((double)(output[k1].size()*output[k2].size()*output[k3].size()));
+        //for (itag1=output[k1].begin(); itag1!=output[k1].end(); itag1++) {
+	  //if (((*itag1)<0)||((*itag1)>=N)) cerr<<"Error: Tag "<<*itag1<<" out of range\n";
+          //for (itag2=output[k2].begin(); itag2!=output[k2].end(); itag2++) {
+            //if (((*itag2)<0)||((*itag2)>=N)) cerr<<"Error: Tag "<<*itag2<<" out of range\n";
+            //for (itag3=output[k3].begin(); itag3!=output[k3].end(); itag3++) {
+              //if (((*itag3)<0)||((*itag3)>=N)) cerr<<"Error: Tag "<<*itag3<<" out of range\n";
+	      //tags_triple[*itag1][*itag2][*itag3] += nocurrences;
+              //tags_pairs[*itag1][*itag2]+=nocurrences;
+              //tags_count[*itag1]+=nocurrences;
+           // }
+	 // }
+       // }
+      }
+    }
+  } */
+
+  map<int, map<int,  map<int, double> > >::iterator cto1;
+  map<int,  map<int, double> >::iterator cto2;
+  map<int, double>::iterator cto3;
+  for(cto1=classes_triple_ocurrences.begin();cto1!=classes_triple_ocurrences.end();cto1++){
+    int k1=cto1->first;
+    for(cto2=classes_triple_ocurrences[k1].begin();cto2!=classes_triple_ocurrences[k1].end();cto2++){
+      int k2=cto2->first;
+      for(cto3=classes_triple_ocurrences[k1][k2].begin();cto3!=classes_triple_ocurrences[k1][k2].end();cto3++){
+        int k3=cto3->first;
+        double nocurrences=classes_triple_ocurrences[k1][k2][k3]/((double)(output[k1].size()*output[k2].size()*output[k3].size()));
+        for (itag1=output[k1].begin(); itag1!=output[k1].end(); itag1++) {
+	  if (((*itag1)<0)||((*itag1)>=N)) cerr<<"Error: Tag "<<*itag1<<" out of range\n";
+          for (itag2=output[k2].begin(); itag2!=output[k2].end(); itag2++) {
+            if (((*itag2)<0)||((*itag2)>=N)) cerr<<"Error: Tag "<<*itag2<<" out of range\n";
+            for (itag3=output[k3].begin(); itag3!=output[k3].end(); itag3++) {
+              if (((*itag3)<0)||((*itag3)>=N)) cerr<<"Error: Tag "<<*itag3<<" out of range\n";
 	      tags_triple[*itag1][*itag2][*itag3] += nocurrences;
-              tags_pairs[*itag2][*itag3]+=nocurrences;  //HACK
+              tags_pairs[*itag1][*itag2]+=nocurrences;
               tags_count[*itag1]+=nocurrences;
             }
 	  }
@@ -310,7 +334,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
     }
   }
 
-  //wcerr<<"Kupiec: tags_count etc done done\n";
+  wcerr<<"Kupiec: tags_count etc done done\n";
 
   //Estimation of the number of times each ambiguity class is emitted
   //from each tag
@@ -321,7 +345,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
       }
     }
   }
-  //wcerr<<"Kupiec: emis done\n";
+  wcerr<<"Kupiec: emis done\n";
 
   //Estimation of the number of times each ambiguity class is emitted
   //from each tag pair
@@ -345,7 +369,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
       }
     }
   }
-  //wcerr<<"Kupiec: emis2  done\n";
+  wcerr<<"Kupiec: emis2  done\n";
 /*
   for(i=0; i<N; i++) {
     for(j=0; j<N; j++) {
@@ -389,10 +413,9 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
 void 
 HMM2::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged, string savecountsfile) {
   //cerr<<"HMM2::train_tagged\n";
-  int k, nw=0;
-  //int i, j; 
-  //int N = td->getN();
-  //int M = td->getM();
+  int i, j, k, nw=0;
+  int N = td->getN();
+  int M = td->getM();
 
   map<int, map<int, double> > tags_pair; //NxN
   map<int, map<int, map<int, double> > > tags_triple; //NxNxN
@@ -684,7 +707,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   int i, j, k, k2, t, len, nw = 0;
   TaggerWord *word=NULL;
   TTag tag, pretag; 
-  set<TTag> tags,tags2, tags3,tags4, pretags, prepretags;
+  set<TTag> tags, pretags, prepretags;
   set<TTag>::iterator itag, jtag, ktag;
   map <int, double> gamma, gamma22;
   map <int, double>::iterator jt, kt;
@@ -706,18 +729,10 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   loli = 0;
   tag = eos;
   tags.clear();
-  tags2.clear();
-  //tags3.clear();
-  //tags4.clear();
   tags.insert(tag);
-  tags2.insert(tag);
-  //tags3.insert(tag);
-  //tags4.insert(tag);
   //k = output[tags];    
   pending.push_back(tags);
-  pending.push_back(tags2);
-  //pending.push_back(tags3);
-  //pending.push_back(tags4);
+  pending.push_back(tags);
   //ambclass_count[k]++;
   //ambclass_count[k]++;
 
@@ -725,10 +740,9 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   alpha[1].clear();      
   alpha[0][tag][tag] = 1;      //PROBLEM AREA: CHECK
   alpha[1][tag][tag] = 1;      //PROBLEM AREA: CHECK
-  //alpha[2][tag][tag] = 1;      //HACK
-  //alpha[3][tag][tag] = 1;      //HACK
 
   word = morpho_stream.get_next_word();
+
   while (word) {   
     //wcerr<<L"BW word: "<<word->get_superficial_form()<<L"\n";
 
@@ -881,9 +895,6 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
     delete word; 
     word = morpho_stream.get_next_word();
   }  
-  if(*pretags.begin() == eos && *prepretags.begin() == eos){
-    //xsi2[eos][eos][eos]++; //increase count by 1 : HACK
-  }
 
   //wcerr<<L"BW:: out of loop\n";
   if ((pending.size()>2) || ((tag!=eos)&&(tag != (td->getTagIndex())[L"TAG_kEOF"])&&(pretag!=eos)&&(pretag != (td->getTagIndex())[L"TAG_kEOF"])) ) 
