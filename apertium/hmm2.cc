@@ -581,8 +581,8 @@ HMM2::apply_rules()
   vector<TForbidRule> &forbid_rules = td->getForbidRules();
   vector<TEnforceAfterRule> &enforce_rules = td->getEnforceRules();
   int N = td->getN();
-  int i, j, j2, k, k2;
-  bool found;
+  int i, j, j2, k, k2, k3;
+  bool found, found1;
  
   for(i=0; i<(int) forbid_rules.size(); i++) {
     if(forbid_rules[i].tagk==-999){
@@ -605,11 +605,12 @@ HMM2::apply_rules()
     for(j=0; j<N; j++) {
       for(k=0; k<N; k++) {
         found = false;
+        found1 = false;
         for (j2=0; j2<(int) enforce_rules[i].tagsj.size(); j2++) {
-	  if (enforce_rules[i].tagsj[j2]==j) {              //enforce rules with tagsj only
-            if(enforce_rules[i].tagsk.size()==0){
+	  if (enforce_rules[i].tagsj[j2]==j) {              
+            found1 = true; //for any tag, tagi, tagsj combination
+            if(enforce_rules[i].tagsk.size()==0){  //enforce rules with tag j only
 	      found = true;
-	      (td->getA())[k][enforce_rules[i].tagi][j] = ZERO; //any tag, tagi, tagsj
             }
 	    for (k2=0; k2<(int) enforce_rules[i].tagsk.size(); k2++)    //enforce rules with tagsj and tagsk
             {
@@ -619,8 +620,10 @@ HMM2::apply_rules()
 	      }
             }
             if (!found) (td->getA())[enforce_rules[i].tagi][j][k] = ZERO;
+            break;
 	  }	  
         }
+	if(!found1) (td->getA())[k][enforce_rules[i].tagi][j] = ZERO; 
       }
     }
   }
