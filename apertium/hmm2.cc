@@ -250,7 +250,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   }
  
   
-  wcerr<<"Kupiec word: Out of while loop\n";
+  //wcerr<<"Kupiec word: Out of while loop\n";
 
   //Estimation of the number of time each tags occurs in the training text
   for(i=0; i<N; i++) {  
@@ -262,7 +262,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
   }
 
  
-  wcerr<<"Kupiec: tags_count_for_emis done\n";
+  //wcerr<<"Kupiec: tags_count_for_emis done\n";
   //Estimation of the number of times each tag pair occurs
 /*
   for(i=0; i<N; i++){
@@ -280,7 +280,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
     }
   }
 */
-  wcerr<<"Kupiec: tags_count etc zeroed done\n";
+  //wcerr<<"Kupiec: tags_count etc zeroed done\n";
   wcerr<<M<<endl;
   set<TTag> tags1, tags2, tags3;
   set<TTag>::iterator itag1, itag2, itag3;
@@ -334,7 +334,7 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
     }
   }
 
-  wcerr<<"Kupiec: tags_count etc done done\n";
+  //wcerr<<"Kupiec: tags_count etc done done\n";
 
   //Estimation of the number of times each ambiguity class is emitted
   //from each tag
@@ -345,31 +345,44 @@ HMM2::init_probabilities_kupiec (FILE *is, int corpus_length, string savecountsf
       }
     }
   }
-  wcerr<<"Kupiec: emis done\n";
+  //wcerr<<"Kupiec: emis done\n";
 
   //Estimation of the number of times each ambiguity class is emitted
   //from each tag pair
-  
 
-  for(k1=0; k1<M; k1++) {
-    tags1=output[k1];
-    for(k2=0; k2<M; k2++) {
-      tags2=output[k2];
-      double nocurrences=classes_pair_ocurrences[k1][k2]/((double)(tags1.size()*tags2.size()));
-      for (itag1=tags1.begin(); itag1!=tags1.end(); itag1++) {
-        if (((*itag1)<0)||((*itag1)>=N))
-          cerr<<"Error: Tag "<<*itag1<<" out of range\n";
-        for (itag2=tags2.begin(); itag2!=tags2.end(); itag2++) {
-          if (((*itag2)<0)||((*itag2)>=N))
-            cerr<<"Error: Tag "<<*itag2<<" out of range\n";
+  for(cto2=classes_pair_ocurrences.begin();cto2!=classes_pair_ocurrences.end();cto2++){
+    int k1=cto2->first;
+    for(cto3=classes_pair_ocurrences[k1].begin();cto3!=classes_pair_ocurrences[k1].end();cto3++){
+      int k2=cto3->first;
+      double nocurrences=classes_pair_ocurrences[k1][k2]/((double)(output[k1].size()*output[k2].size()));
+      for (itag1=output[k1].begin(); itag1!=output[k1].end(); itag1++) {
+        if (((*itag1)<0)||((*itag1)>=N)) cerr<<"Error: Tag "<<*itag1<<" out of range\n";
+        for (itag2=output[k2].begin(); itag2!=output[k2].end(); itag2++) {
+          if (((*itag2)<0)||((*itag2)>=N)) cerr<<"Error: Tag "<<*itag2<<" out of range\n";
           emis2[*itag1][*itag2][k2] += nocurrences;
-          //emis[*itag2][k2] += nocurrences;
           tags_pair_for_emis2[*itag1][*itag2] += nocurrences;
         }
       }
     }
   }
-  wcerr<<"Kupiec: emis2  done\n";
+  
+  /* for(k1=0; k1<M; k1++) {
+    tags1=output[k1];
+    for(k2=0; k2<M; k2++) {
+      tags2=output[k2];
+      double nocurrences=classes_pair_ocurrences[k1][k2]/((double)(tags1.size()*tags2.size()));
+      for (itag1=tags1.begin(); itag1!=tags1.end(); itag1++) {
+        if (((*itag1)<0)||((*itag1)>=N)) cerr<<"Error: Tag "<<*itag1<<" out of range\n";
+        for (itag2=tags2.begin(); itag2!=tags2.end(); itag2++) {
+          if (((*itag2)<0)||((*itag2)>=N)) cerr<<"Error: Tag "<<*itag2<<" out of range\n";
+          emis2[*itag1][*itag2][k2] += nocurrences;
+          tags_pair_for_emis2[*itag1][*itag2] += nocurrences;
+        }
+      }
+    }
+  } */
+
+  //wcerr<<"Kupiec: emis2  done\n";
 /*
   for(i=0; i<N; i++) {
     for(j=0; j<N; j++) {
