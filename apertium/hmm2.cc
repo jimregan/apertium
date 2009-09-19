@@ -719,7 +719,6 @@ HMM2::filter_ambiguity_classes(FILE *in, FILE *out) {
 
 void 
 HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
-  //cerr<<"HMM2::BW\n";
   int i, j, k, k2, t, len, nw = 0;
   TaggerWord *word=NULL;
   TTag tag, pretag; 
@@ -746,11 +745,8 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   tag = eos;
   tags.clear();
   tags.insert(tag);
-  //k = output[tags];    
   pending.push_back(tags);
   pending.push_back(tags);
-  //ambclass_count[k]++;
-  //ambclass_count[k]++;
 
   alpha[0].clear();      
   alpha[1].clear();      
@@ -761,7 +757,6 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
 
   while (word) {   
     //wcerr<<L"BW word: "<<word->get_superficial_form()<<L"\n";
-
     if (++nw%10000==0) wcerr<<L'.'<<flush;
 
     pretags = pending.back();
@@ -772,7 +767,6 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
     if (tags.size()==0) { // This is an unknown word
       tags = td->getOpenClass();
       ndesconocidas++;
-      //cerr<<"unknown\n";
     }
     
     if (output.has_not(tags)) {
@@ -785,23 +779,18 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
     }
     
     k = output[tags];    
-    //wcerr<<word->get_string_tags()<<L"\n";
     ambclass_count[k]++;
     len = pending.size();
     alpha[len].clear();     
       
     //Forward probabilities
-    //wcerr<<L"BW:: forward prob start\n";
     for (itag=tags.begin(); itag!=tags.end(); itag++) {
       i=*itag;
       for (jtag=pretags.begin(); jtag!=pretags.end(); jtag++) {
          j=*jtag;
         for (ktag=prepretags.begin(); ktag!=prepretags.end(); ktag++) {
            k2=*ktag;
-           //if((td->getA())[k2][j][i]==0 || (td->getB())[j][i][k]==0) { cerr<<"WHOOPS\n"; exit(1); }
 	   alpha[len][j][i] += alpha[len-1][k2][j]*(td->getA())[k2][j][i]*(td->getB())[j][i][k];
-           //cerr<<"len "<<len<<": k2 "<<k2<<" j "<<j<<" i "<<i<<"\n";
-	   //cerr<<alpha[len][j][i]<<"+="<<alpha[len-1][k2][j]<<"x"<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"\n";
 	}
       /*  if(isnan(alpha[len][j][i])) {
           cerr<<"alpha isnan "<<alpha[len][j][i]<<"+="<<alpha[len-1][k2][j]<<"x"<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"\n";
@@ -822,7 +811,6 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
     if (!(tags.size()==1 && pretags.size()==1)) {
       pending.push_back(tags);
     } else {  // word and previous word are unambiguous
-      //wcerr<<L"BW:: two unambiguous words\n";
       tag = *tags.begin(); 
       pretag = *pretags.begin(); 
       beta[0].clear();
@@ -830,9 +818,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
       prob = alpha[len][pretag][tag];
       if(prob==0) exit(1);         
       loli -= log(prob);  
-      //wcerr<<L"prob="<<prob<<L" loli="<<loli<<L"\n";
       
-      //wcerr<<L"BW:: backward prob start\n";
       for (t=0; t<len-1; t++) {  // loop from T-1 to 0	
         //wcerr<<L"t = "<<t<<L"\n";
         pretags = pending.back();
@@ -842,14 +828,10 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
 	beta[1-t%2].clear();
 	for (itag=tags.begin(); itag!=tags.end(); itag++) {
 	  i=*itag;
-          //wcerr<<"itag\n";
 	  for (jtag=pretags.begin(); jtag!=pretags.end(); jtag++) {
 	    j = *jtag;	      
-            //wcerr<<"jtag\n";
 	    for (ktag=prepretags.begin(); ktag!=prepretags.end(); ktag++) {
 	      k2 = *ktag;	    
-              //wcerr<<"A "<<k2<<" "<<j<<" "<<i<<" :"<<(td->getA())[k2][j][i]<<"\n";
-              //wcerr<<"B "<<j<<" "<<i<<" "<<k<<" :"<<(td->getB())[j][i][k]<<"\n"; 
 	      beta[1-t%2][k2][j] += (td->getA())[k2][j][i]*(td->getB())[j][i][k]*beta[t%2][j][i];
 	    /*  if(isnan(beta[1-t%2][k2][j])) {
                 cerr<<"beta isnan "<<beta[1-t%2][k2][j]<<"+="<<(td->getA())[k2][j][i]<<"x"<<(td->getB())[j][i][k]<<"x"<<beta[t%2][j][i]<<"\n";
@@ -872,7 +854,6 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
   	    gamma[i] +=  alpha[len-t][j][i]*beta[t%2][j][i]/prob;	        //sum of phi[i][k] over all k = tag_count_for_emis
 	    phi2[j][i][k] += alpha[len-t][j][i]*beta[t%2][j][i]/prob;               
 	    phi[i][k] += alpha[len-t][j][i]*beta[t%2][j][i]/prob;               
-            //wcerr<<"... gamma or phi\n";
           /*  if(isnan(gamma2[j][i])) cerr<<"gamma2isnan\n";
             if(isinf(gamma2[j][i])) cerr<<"gamma2isinf\n";
             if(isnan(gamma22[j])) cerr<<"gamma22isnan\n";
@@ -887,9 +868,7 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
 	}
         tags=pretags;
       }
-      pending.pop_back(); //ADASDADASDASDASJKLD
-	
-      //wcerr<<L"BW:: backward prob end\n";
+      pending.clear(); //ADASDADASDASDASJKLD
       pretags.clear();
       pretags.insert(pretag);
       pending.push_back(pretags);
@@ -912,7 +891,6 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
     word = morpho_stream.get_next_word();
   }  
 
-  //wcerr<<L"BW:: out of loop\n";
   if ((pending.size()>2) || ((tag!=eos)&&(tag != (td->getTagIndex())[L"TAG_kEOF"])&&(pretag!=eos)&&(pretag != (td->getTagIndex())[L"TAG_kEOF"])) ) 
     wcerr<<L"Warning: Thee las tag is not the end-of-sentence-tag\n";
   
@@ -925,14 +903,11 @@ HMM2::train (FILE *ftxt, int corpus_length, string savecountsfile) {
 
   SmoothUtilsTrigram::calculate_smoothed_parameters(*td, gamma22, gamma2, xsi2, ambclass_count, phi2, phi, gamma2, gamma,  nw);
 
-  //print_A();
-  //print_B();
   wcerr<<L"Log="<<loli<<L"\n";
 }
 
 void 
 HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
-  //cerr<<"HMM2::Tagger\n";
   int i, j, k, k2, nw;
   TaggerWord *word=NULL;
   TTag tag, pretag, prepretag;
@@ -965,7 +940,6 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   word = morpho_stream.get_next_word();
  
   while (word) {
-   // wcerr<<L"HMM2::Tagger while loop start: word="<<word->get_superficial_form()<<L"\n";
     wpend.push_back(*word);    	    
     nwpend = wpend.size();
     
@@ -991,9 +965,6 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
          
     k = output[tags];  //Ambiguity class the word belongs to
     
-    //clear_array_double(alpha[nwpend%2], N);  
-    //clear_array_vector(best[nwpend%2], N);
- 
     for(i=0;i<N;i++){
       for(j=0;j<N;j++){
 	alpha[nwpend%2][i][j]=0.0;
@@ -1001,7 +972,6 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
       }
     }
     
-    //cerr<<"HMM2::Tagger tags="<<tags.size()<<" pretags="<<pretags.size()<<" prepretags="<<prepretags.size()<<"\n";
     //Induction
     for (itag=tags.begin(); itag!=tags.end(); itag++) { //For all tag from the current word
       i=*itag;
@@ -1010,11 +980,7 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
         for (ktag=prepretags.begin(); ktag!=prepretags.end(); ktag++) {
            k2=*ktag;
 	  x = alpha[1-nwpend%2][k2][j]*(td->getA())[k2][j][i]*(td->getB())[j][i][k];
-          //cerr<<"HMM2::Tagger Induction x="<<x<<"\n";
-          //cerr<<"HMM2::Tagger Induction alpha nwpend2 j i="<<alpha[nwpend%2][j][i]<<"\n";
-	  //x = alpha[1-nwpend%2][j]*(td->getA())[j][i]*(td->getB())[i][k];
 	  if (alpha[nwpend%2][j][i]<=x) {
-          //cerr<<"HMM2::Tagger inside nwpend block, nwpend="<<nwpend<<"\n";
 	    if (nwpend>1) 
 	      best[nwpend%2][j][i] = best[1-nwpend%2][k2][j];
 	    best[nwpend%2][j][i].push_back(i);
@@ -1023,7 +989,6 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
         }
       }
     }
-    //cerr<<"HMM2::Tagger alpha best done\n";
     
     //Backtracking
     if (tags.size()==1 && pretags.size()==1) {       
@@ -1039,7 +1004,6 @@ HMM2::tagger(FILE *in, FILE *out, bool show_all_good_first) {
         if (debug)
 	  wcerr<<L"Problem with word '"<<word->get_superficial_form()<<L"' "<<word->get_string_tags()<<L"\n";
       }
-      //cerr<<"HMM2::Tagger print best pretag tag size "<<best[nwpend%2][pretag][tag].size()<<"\n";
       for (unsigned t=0; t<best[nwpend%2][pretag][tag].size(); t++) {
 	if (show_all_good_first) {
           cerr<<"HMM2::Tagger print in backtracking good first\n";
