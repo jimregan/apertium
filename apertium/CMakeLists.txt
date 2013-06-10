@@ -37,7 +37,7 @@ ADD_FORMATTER (apertium_rertf_cp1250  reformat.xsl rtf-format-cp1250.xml)
 ADD_FORMATTER (apertium_desrtf_cp1251 deformat.xsl rtf-format-cp1251.xml)
 ADD_FORMATTER (apertium_rertf_cp1251  reformat.xsl rtf-format-cp1251.xml)
 
-ADD_LIBRARY (apertium3 SHARED collection.cc constant_manager.cc hmm.cc interchunk.cc
+ADD_LIBRARY (apertium3 SHARED collection.cc constant_manager.cc hmm.cc swpost.cc interchunk.cc
              interchunk_word.cc lextor.cc lextor_data.cc lextor_eval.cc
              lextor_word.cc morpho_stream.cc postchunk.cc string_utils.cc
              tagger.cc tagger_data.cc tagger_utils.cc tagger_word.cc

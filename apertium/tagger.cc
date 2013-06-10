@@ -18,12 +18,13 @@
  */
 /** PoS tagger main program.
  *
- *  @author Felipe Sánchez-Martínez - fsanchez@dlsi.ua.es
+ *  @author Felipe Sï¿½nchez-Martï¿½nez - fsanchez@dlsi.ua.es
  */
 
 #include <apertium/tagger.h>
 
 #include <apertium/hmm.h>
+#include <apertium/swpost.h>
 #include <apertium/tagger_utils.h>
 #include <apertium/tsx_reader.h>
 #include <apertium/tagger_word.h>
@@ -261,7 +262,8 @@ Tagger::main(int argc, char *argv[]) {
 
   switch(mode)  {
     case TRAIN_MODE:
-      train();
+      //train();
+      trainSWPoST();
       break;
     
     case TRAIN_SUPERVISED_MODE:
@@ -273,11 +275,13 @@ Tagger::main(int argc, char *argv[]) {
       break;
       
     case TAGGER_MODE:
-      tagger();
+      //tagger();
+      taggerSWPoST();
       break;
 
     case TAGGER_FIRST_MODE:
-      tagger(true);
+      //tagger(true);
+      taggerSWPoST(true);
       break;
 
     default:
@@ -333,6 +337,50 @@ Tagger::tagger(bool mode_first) {
   }
 }
 
+
+void
+Tagger::taggerSWPoST(bool mode_first) {
+  FILE *ftdata = fopen(filenames[0].c_str(), "rb");
+  if (!ftdata) {
+    filerror(filenames[0]);
+  }
+
+  TaggerData td;
+  td.read(ftdata);
+  fclose(ftdata);
+  
+  SWPoST swpost(&td);
+
+  if(filenames.size() == 1) {
+    swpost.taggerSWPoST(stdin, stdout, mode_first);
+  }
+  else {
+    FILE *finput = fopen(filenames[1].c_str(), "r");
+    if (!finput) {
+      filerror(filenames[1]);
+    }
+#ifdef _MSC_VER
+	_setmode(_fileno(finput), _O_U8TEXT);
+#endif
+    if(filenames.size() == 2) {
+      swpost.taggerSWPoST(finput, stdout, mode_first);
+    }
+    else  {
+      FILE *foutput = fopen(filenames[2].c_str(), "w");
+      if (!foutput) {
+        filerror(filenames[2]);
+      }
+#ifdef _MSC_VER
+	  _setmode(_fileno(foutput), _O_U8TEXT);
+#endif
+
+      swpost.taggerSWPoST(finput, foutput, mode_first);
+      fclose(foutput);
+    }
+    fclose(finput);
+  }
+}
+
 void
 Tagger::filerror(string const &filename) {
   cerr << "Error: cannot open file '" << filenames[0] << "'\n\n";
@@ -382,6 +430,46 @@ Tagger::train() {
   fclose(fdic);
   fclose(fcrp);
   treader.write(filenames[3]);
+}
+
+void
+Tagger::trainSWPoST() {
+  TSXReader treader;
+  treader.read(filenames[2]);
+  SWPoST swpost(&(treader.getTaggerData()));
+  TaggerWord::setArrayTags(treader.getTaggerData().getArrayTags());
+
+  wcerr << L"Calculating ambiguity classes...\n";
+  FILE *fdic = fopen(filenames[0].c_str(), "r");
+  if(fdic) {
+    swpost.read_dictionary(fdic);
+  }
+  else {
+    filerror(filenames[0]);
+  }
+  wcerr << L"Average initialization of sliding window probabilities...\n";
+  FILE *fcrp = fopen(filenames[1].c_str(), "r");
+  if(fcrp) {
+#ifdef _MSC_VER
+    _setmode(_fileno(fcrp), _O_U8TEXT);
+#endif
+    swpost.init_probabilities(fcrp);
+  }
+  else {
+    filerror(filenames[1]);
+  }
+
+  wcerr << L"Training (Unsupervised)...\n";
+  for(int i=0; i != nit; i++) {
+    fseek(fcrp, 0, SEEK_SET);
+    swpost.train(fcrp);
+  }
+
+  fclose(fdic);
+  fclose(fcrp);
+wcerr << L"xxx begin writing to prob." << endl;
+  treader.writeSWPoST(filenames[3]);
+wcerr << L"xxx finish writing to prob." << endl;
 }
 
 void

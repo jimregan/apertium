@@ -77,6 +77,7 @@ public:
 
   void read(string const &filename);
   void write(string const &filename);
+  void writeSWPoST(string const &filename);
   TaggerData & getTaggerData();
 };
 

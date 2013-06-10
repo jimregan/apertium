@@ -47,6 +47,7 @@ private:
   int M;
   double **a;
   double **b;
+  double ***c;
   PatternList plist;
 
   vector<wstring> discard;
@@ -88,8 +89,13 @@ public:
  
   void setProbabilities(int const myN, int const myM, 
                         double **myA = NULL, double **myB = NULL);
+
+  void setSWPoSTProbabilities(int const myN, int const myM,
+		  	      double ***myC = NULL);
+
   virtual double ** getA();
   virtual double ** getB();
+  virtual double *** getC();
   virtual int getN();
   virtual int getM();
   
@@ -98,7 +104,9 @@ public:
   PatternList & getPatternList();
   
   void read(FILE *in);
+  void readSWPoST(FILE *in);
   void write(FILE *out);
+  void writeSWPoST(FILE *out);
 };
 
 #endif

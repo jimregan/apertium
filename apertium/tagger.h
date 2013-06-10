@@ -56,7 +56,9 @@ private:
 
   int getMode(int argc, char *argv[]);
   void tagger(bool model_first=false);
+  void taggerSWPoST(bool model_first=false);
   void train();
+  void trainSWPoST();
   void retrain();
   void trainSupervised();
   void help();

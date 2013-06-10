@@ -442,6 +442,7 @@ HMM::apply_rules()
 
 void 
 HMM::read_dictionary (FILE *fdic) {
+wcerr << L"xxx read_dictionary:" << endl;
   int i, k, nw=0;
   TaggerWord *word=NULL;
   set <TTag> tags;
@@ -454,6 +455,7 @@ HMM::read_dictionary (FILE *fdic) {
   word = morpho_stream.get_next_word();
   
   while (word) {
+wcerr << L"xxx while word: word=" << *word << endl;
     if (++nw%10000==0) wcerr<<L'.'<<flush;
     
     tags = word->get_tags();
@@ -502,6 +504,7 @@ HMM::filter_ambiguity_classes(FILE *in, FILE *out) {
 	ambiguity_classes.insert(tags);
 	word->outputOriginal(out);
 	//wcerr<<word->get_string_tags()<<L"\n";
+wcerr << L"xxx filter_ambituity_classes:" << *word << L"\n";
       }
     }
     delete word;

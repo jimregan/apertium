@@ -1,4 +1,4 @@
-h_sources = collection.h constant_manager.h hmm.h interchunk.h \
+h_sources = collection.h constant_manager.h hmm.h swpost.h interchunk.h \
             interchunk_word.h lextor_data.h lextor_eval.h lextor.h \
             lextor_word.h morpho_stream.h postchunk.h string_utils.h \
             tagger_data.h tagger.h tagger_utils.h tagger_word.h \
@@ -12,7 +12,7 @@ h_sources = collection.h constant_manager.h hmm.h interchunk.h \
             tmx_trail_postprocessors.h tmx_translate.h tmx_words.h \
             tmx_align_parameters.h tmx_aligner_tool.h latex_accentsmap.h
 
-cc_sources = collection.cc constant_manager.cc hmm.cc interchunk.cc \
+cc_sources = collection.cc constant_manager.cc hmm.cc swpost.cc interchunk.cc \
              interchunk_word.cc lextor.cc lextor_data.cc lextor_eval.cc \
              lextor_word.cc morpho_stream.cc postchunk.cc string_utils.cc \
              tagger.cc tagger_data.cc tagger_utils.cc tagger_word.cc \

@@ -605,6 +605,22 @@ TSXReader::write(string const &filename)
   fclose(out);
 }
 
+void
+TSXReader::writeSWPoST(string const &filename)
+{
+  FILE *out = fopen(filename.c_str(), "wb");
+  if(!out)
+  {
+    cerr << "Error: cannot open '" << filename;
+    cerr << "' for writing" << endl;
+    exit(EXIT_FAILURE);
+  }
+
+  tdata.writeSWPoST(out);
+
+  fclose(out);
+}
+
 TaggerData &
 TSXReader::getTaggerData()
 {
