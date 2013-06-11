@@ -308,7 +308,6 @@ SWPoST::print_para_matrix() {
 //TODO
 void 
 SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
-wcerr << L"xxx taggerSWPoST:" << endl;
   int s_left, s_right;
   TaggerWord *word_left = NULL;
   TaggerWord *word = NULL;
@@ -316,21 +315,24 @@ wcerr << L"xxx taggerSWPoST:" << endl;
   
   set <TTag> tags_left, tags, tags_right;
   
-  int M = td->getM();  
-  int N = td->getN();  
-wcerr << L"M, N =" << M << L"," << N << endl;
   MorphoStream morpho_stream(in, true, td);                             
   
   Collection &output = td->getOutput();
   
-  word_left = morpho_stream.get_next_word(); 
+  word_left = morpho_stream.get_next_word();
+  word_left->set_show_sf(true);
+  if(morpho_stream.getEndOfFile()) {
+     return;
+  }
   word = morpho_stream.get_next_word();
+  word->set_show_sf(true);
+  if(morpho_stream.getEndOfFile()) {
+     return;
+  }
   word_right = morpho_stream.get_next_word();
-wcerr << L"xxx: " << *word_left << endl;
-wcerr << L"xxx: " << *word << endl;
-wcerr << L"xxx: " << *word_right << endl;
-  if (word_left == NULL || word == NULL || word_right == NULL) {
-      return;
+  word_right->set_show_sf(true);
+  if(morpho_stream.getEndOfFile()) {
+     return;
   }
 
   wstring micad;
@@ -340,8 +342,6 @@ wcerr << L"xxx: " << *word_right << endl;
   fputws_unlocked(micad.c_str(), out);
  
   while (word_right) {
-
-	wcerr << L"xxx: word_right=" << *word_right << endl;
 
   	tags_left = word_left->get_tags();
 	if (tags_left.size() == 0) {
@@ -380,13 +380,22 @@ wcerr << L"xxx: " << *word_right << endl;
 	micad = word->get_lexical_form(tag_max, (td->getTagIndex())[L"TAG_kEOF"]);
 	fputws_unlocked(micad.c_str(), out);
 
-        word_left = word;
+	delete word_left;
+
+	word_left = word;
 	word = word_right;
 	word_right = morpho_stream.get_next_word();
+	word_right->set_show_sf(true);
+	
+	if(morpho_stream.getEndOfFile()) {
+		fflush(out);
+		morpho_stream.setEndOfFile(false);
+		break;
+	}
   }
 
   //last word, naive.
-  micad = word_right->get_lexical_form((TTag&)*(word_right->get_tags().begin()), (td->getTagIndex())[L"TAG_kEOF"]);
+  micad = word->get_lexical_form((TTag&)*(word->get_tags().begin()), (td->getTagIndex())[L"TAG_kEOF"]);
   fputws_unlocked(micad.c_str(), out);
 
   wcerr << L"\n";

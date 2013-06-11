@@ -262,8 +262,8 @@ Tagger::main(int argc, char *argv[]) {
 
   switch(mode)  {
     case TRAIN_MODE:
-      train();
-      //trainSWPoST();
+      //train();
+      trainSWPoST();
       break;
     
     case TRAIN_SUPERVISED_MODE:
@@ -275,13 +275,13 @@ Tagger::main(int argc, char *argv[]) {
       break;
       
     case TAGGER_MODE:
-      tagger();
-      //taggerSWPoST();
+      //tagger();
+      taggerSWPoST();
       break;
 
     case TAGGER_FIRST_MODE:
-      tagger(true);
-      //taggerSWPoST(true);
+      //tagger(true);
+      taggerSWPoST(true);
       break;
 
     default:
