@@ -346,7 +346,7 @@ Tagger::taggerSWPoST(bool mode_first) {
   }
 
   TaggerData td;
-  td.read(ftdata);
+  td.readSWPoST(ftdata);
   fclose(ftdata);
   
   SWPoST swpost(&td);
@@ -467,9 +467,7 @@ Tagger::trainSWPoST() {
 
   fclose(fdic);
   fclose(fcrp);
-wcerr << L"xxx begin writing to prob." << endl;
   treader.writeSWPoST(filenames[3]);
-wcerr << L"xxx finish writing to prob." << endl;
 }
 
 void
