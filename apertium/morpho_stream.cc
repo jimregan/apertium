@@ -56,7 +56,6 @@ MorphoStream::MorphoStream(FILE *ftxt, bool d, TaggerData *t)
 
   end_of_file = false;
   null_flush = false;
-wcerr << L"xxx construct: vwords.size()=" << vwords.size() << endl;
 }
 
 MorphoStream::~MorphoStream() 
@@ -67,7 +66,6 @@ MorphoStream::~MorphoStream()
 TaggerWord *
 MorphoStream::get_next_word()
 {
-wcerr << L"xxx get_next_word: vwords.size()=" << vwords.size() << endl;
   if(vwords.size() != 0)
   {
     TaggerWord* word=vwords.front();
@@ -300,12 +298,9 @@ MorphoStream::readRestOfWord(int &ivwords)
   // first we have the superficial form
   wstring  str = L"";
   
-wcerr << L"xxx readRestOfWord begin: str=" << str << endl;
-
   while(true)
   {
     int symbol = fgetwc_unlocked(input);
-wcerr << L"xxx while true superficial. fgetwc: symbol=" << (char)symbol << endl;
     if(feof(input) || (null_flush && symbol == L'\0'))
     {
       end_of_file = true;
@@ -348,7 +343,6 @@ wcerr << L"xxx while true superficial. fgetwc: symbol=" << (char)symbol << endl;
   while(true)
   {
     int symbol = fgetwc_unlocked(input);
-wcerr << L"xxx while true acceptions. fgetwc: symbol=" << (char)symbol << endl;
     if(feof(input) || (null_flush && symbol == L'\0'))
     {
       end_of_file = true;
@@ -389,8 +383,6 @@ wcerr << L"xxx while true acceptions. fgetwc: symbol=" << (char)symbol << endl;
       str += static_cast<wchar_t>(symbol);
     }    
   }
-
-wcerr << L"xxx readRestOfWord end: str=" << str << endl;
 }
 
 void
