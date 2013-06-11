@@ -61,6 +61,17 @@ TaggerData::destroy()
     delete [] b;
   }
   b = NULL;
+
+  if (c != NULL) {
+	for (int i = 0; i < M; ++i) {
+		for (int j = 0; j < M; ++j) {
+			delete [] c[i][j];
+		}
+		delete [] c[i];
+	}
+	delete [] c;
+  }
+  c = NULL;
   N = 0;
   M = 0;
 }
@@ -69,6 +80,7 @@ TaggerData::TaggerData()
 {
   a = NULL;
   b = NULL;
+  c = NULL;
   N = 0;
   M = 0;
 }
@@ -82,6 +94,7 @@ TaggerData::TaggerData(TaggerData const &o)
 {
   a = NULL;
   b = NULL;
+  c = NULL;
   N = 0;
   M = 0;
   copy(o);
@@ -269,8 +282,7 @@ void TaggerData::setSWPoSTProbabilities(int const myN, int const myM, double ***
 			 }
 		 }
 	 } else {
-		 a = NULL;
-		 b = NULL;
+		 c = NULL;
 	 }
 }
 

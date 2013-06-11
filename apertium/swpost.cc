@@ -83,9 +83,6 @@ void SWPoST::init_probabilities(FILE *ftxt) {
 	vector<vector< int > > para_matrix_sum(M, vector<int>(M, 0));
 #endif
 
-//	vector<vector<vector< float > > > para_matrix(M, vector<vector<float> >(M, vector<float>(N, 0)));
-//	vector<vector< int > > para_matrix_sum(M, vector<int>(M, 0));
-
 	Collection &output = td->getOutput();
 
 	MorphoStream lexmorfo(ftxt, true, td);
@@ -229,8 +226,6 @@ void SWPoST::train(FILE *ftxt) {
 	vector<vector<vector<float> > > para_matrix_new(M, vector<vector<float > >(M, vector<float>(N, 0)));
 #endif
 
-//	vector<vector<vector<float> > > para_matrix_new(M, vector<vector<float > >(M, vector<float>(N, 0)));
-
 	set<TTag> tags_left, tags, tags_right;
 
 	Collection &output = td->getOutput();
@@ -316,7 +311,7 @@ SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
 wcerr << L"xxx:" << endl;
   int i, j, k, s_left, s_right, nw = 0;
   TaggerWord *word_left = NULL;
-  TaggerWord *word=NULL;
+  TaggerWord *word = NULL;
   TaggerWord *word_right = NULL;
   
   set <TTag> tags_left, tags, tags_right;
