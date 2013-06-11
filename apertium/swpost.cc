@@ -308,8 +308,8 @@ SWPoST::print_para_matrix() {
 //TODO
 void 
 SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
-wcerr << L"xxx:" << endl;
-  int i, j, k, s_left, s_right, nw = 0;
+wcerr << L"xxx taggerSWPoST:" << endl;
+  int s_left, s_right;
   TaggerWord *word_left = NULL;
   TaggerWord *word = NULL;
   TaggerWord *word_right = NULL;
