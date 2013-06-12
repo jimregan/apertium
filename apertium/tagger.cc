@@ -63,6 +63,8 @@ Tagger::getMode(int argc, char *argv[]) {
    
   int c;
 
+  is_sw = false;
+
 #if HAVE_GETOPT_LONG
   int option_index=0;
 #endif
@@ -70,11 +72,12 @@ Tagger::getMode(int argc, char *argv[]) {
   while (true) {
 #if HAVE_GETOPT_LONG
     static struct option long_options[] =  {
+      {"sliding-winodw",   no_argument, 0, 'w'},
       {"train",      required_argument, 0, 't'},
       {"supervised", required_argument, 0, 's'},
       {"retrain",    required_argument, 0, 'r'},
       {"tagger",     no_argument,       0, 'g'},
-      {"show-superficial",     no_argument,       0, 'p'},
+      {"show-superficial", no_argument, 0, 'p'},
       {"eval",       no_argument,       0, 'e'},
       {"first",      no_argument,       0, 'f'},
       {"help",       no_argument,       0, 'h'}, 
@@ -85,14 +88,35 @@ Tagger::getMode(int argc, char *argv[]) {
       {0, 0, 0, 0}
     };
 
-    c=getopt_long(argc, argv, "mdt:s:r:gpefhz",long_options, &option_index);
+    c=getopt_long(argc, argv, "wmdt:s:r:gpefhz",long_options, &option_index);
 #else
-    c=getopt(argc, argv, "mdt:s:r:gpefhz");
+    c=getopt(argc, argv, "wmdt:s:r:gpefhz");
 #endif
     if (c==-1)
       break;
       
     switch (c) {
+      case 'w':
+        is_sw = true;
+        if (mode == TRAIN_HMM_UNSUPERVISED_MODE) {
+          mode = TRAIN_SW_UNSUPERVISED_MODE;
+        }
+        if (mode == TRAIN_HMM_SUPERVISED_MODE) {
+          mode = TRAIN_SW_SUPERVISED_MODE;
+        }
+        if (mode == RETRAIN_HMM_UNSUPERVISED_MODE) {
+          mode = RETRAIN_SW_UNSUPERVISED_MODE;
+        }
+        if (mode == TAGGER_HMM_MODE) {
+          mode = TAGGER_SW_MODE;
+        }
+        if (mode == TAGGER_HMM_EVAL_MODE) {
+          mode = TAGGER_SW_EVAL_MODE;
+        }
+        if (mode == TAGGER_HMM_FIRST_MODE) {
+          mode = TAGGER_SW_FIRST_MODE;
+        }
+        break;
       case 'm':
 	TaggerWord::generate_marks = true;
         break;
@@ -110,7 +134,12 @@ Tagger::getMode(int argc, char *argv[]) {
           nit = atoi(optarg); //Number of iterations
         }
         if(mode==UNKNOWN_MODE) {
-          mode=TRAIN_MODE;
+          if (is_sw) {
+            mode = TRAIN_SW_UNSUPERVISED_MODE;
+          }
+          else {
+            mode = TRAIN_HMM_UNSUPERVISED_MODE;
+          }
         }
         else {
 	  wcerr<<L"Error: --train <n> argument cannot be mixed with --retrain or --tagger arguments\n";
@@ -128,7 +157,12 @@ Tagger::getMode(int argc, char *argv[]) {
         }
 
         if(mode==UNKNOWN_MODE) {
-          mode=TRAIN_SUPERVISED_MODE;
+          if (is_sw) {
+            mode = TRAIN_SW_SUPERVISED_MODE;
+          }
+          else {
+            mode = TRAIN_HMM_SUPERVISED_MODE;
+          }
         }
         else {
 	  wcerr<<L"Error: --supervised optional argument should only appear after --train <n> argument\n";
@@ -149,7 +183,12 @@ Tagger::getMode(int argc, char *argv[]) {
 	  nit = atoi(optarg); //Number of iterations
         }
         if(mode==UNKNOWN_MODE) {
-          mode=RETRAIN_MODE; 
+          if (is_sw) {
+            mode = RETRAIN_SW_UNSUPERVISED_MODE;
+          }
+          else {
+            mode = RETRAIN_HMM_UNSUPERVISED_MODE;
+          }
         }
         else {
 	  wcerr<<L"Error: --retrain argument cannot be mixed with --train or --tagger arguments\n";
@@ -159,7 +198,12 @@ Tagger::getMode(int argc, char *argv[]) {
         
       case 'g': 
         if(mode==UNKNOWN_MODE) {
-	  mode=TAGGER_MODE;
+          if (is_sw) {
+            mode = TAGGER_SW_MODE;
+          }
+          else {
+	    mode = TAGGER_HMM_MODE;
+          }
         }
         else {
           wcerr<<L"Error: --tagger argument cannot be mixed with --train or --retrain arguments\n";
@@ -168,8 +212,11 @@ Tagger::getMode(int argc, char *argv[]) {
         break;
          
       case 'e':
-        if(mode==TAGGER_MODE) {
-	  mode=TAGGER_EVAL_MODE;
+        if(mode==TAGGER_HMM_MODE) {
+          mode = TAGGER_HMM_EVAL_MODE;
+        }
+        else if (mode == TAGGER_SW_MODE) {
+          mode = TAGGER_SW_EVAL_MODE;
         }
         else {
           wcerr<<L"Error: --eval optional argument should only appear after --tagger argument\n";
@@ -178,8 +225,11 @@ Tagger::getMode(int argc, char *argv[]) {
 	break;
         
       case 'f': 
-        if(mode==TAGGER_MODE) {
-          mode=TAGGER_FIRST_MODE;
+        if(mode==TAGGER_HMM_MODE) {
+          mode = TAGGER_HMM_FIRST_MODE;
+        }
+        else if (mode = TAGGER_SW_MODE) {
+          mode = TAGGER_SW_FIRST_MODE;
         }
         else {
           wcerr<<L"Error: --first optional argument should only appear after --tagger argument\n";
@@ -209,30 +259,41 @@ Tagger::getMode(int argc, char *argv[]) {
   
   switch(argc-optind) {
     case 6:
-      if(mode != TRAIN_SUPERVISED_MODE) {
+      if(mode != TRAIN_HMM_SUPERVISED_MODE
+          && mode != TRAIN_SW_SUPERVISED_MODE) {
         help();
       }
       break;
     
     case 4:
-      if(mode != TRAIN_MODE) {
+      if(mode != TRAIN_HMM_UNSUPERVISED_MODE
+          && mode != TRAIN_SW_UNSUPERVISED_MODE) {
         help();
       }
       break;
     case 3:
-      if ((mode != TAGGER_MODE) && (mode != TAGGER_FIRST_MODE)) {
+      if (mode != TAGGER_HMM_MODE
+          && mode != TAGGER_HMM_FIRST_MODE
+          && mode != TAGGER_SW_MODE
+          && mode != TAGGER_SW_FIRST_MODE) {
         help();
       }
       break;
       
     case 2:
-      if(mode != RETRAIN_MODE && mode != TAGGER_MODE) {
+      if(mode != RETRAIN_HMM_UNSUPERVISED_MODE
+          && mode != TAGGER_HMM_MODE
+          && mode != RETRAIN_SW_UNSUPERVISED_MODE
+          && mode != TAGGER_SW_MODE) {
         help();
       }
       break;
     
     case 1:
-      if ((mode != TAGGER_MODE) && (mode != TAGGER_FIRST_MODE))  {
+      if (mode != TAGGER_HMM_MODE
+          && mode != TAGGER_HMM_FIRST_MODE
+          && mode != TAGGER_SW_MODE
+          && mode != TAGGER_SW_FIRST_MODE)  {
         help();
       }
       break;
@@ -261,26 +322,43 @@ Tagger::main(int argc, char *argv[]) {
   int mode = getMode(argc, argv);
 
   switch(mode)  {
-    case TRAIN_MODE:
-      //train();
+    case TRAIN_HMM_UNSUPERVISED_MODE:
+      train();
+      break;
+
+    case TRAIN_SW_UNSUPERVISED_MODE:
       trainSWPoST();
       break;
     
-    case TRAIN_SUPERVISED_MODE:
+    case TRAIN_HMM_SUPERVISED_MODE:
       trainSupervised();
       break;
 
-    case RETRAIN_MODE:
+    case TRAIN_SW_SUPERVISED_MODE:
+      //trainSupervisedSWPoST();
+      break;
+
+    case RETRAIN_HMM_UNSUPERVISED_MODE:
       retrain();
       break;
       
-    case TAGGER_MODE:
-      //tagger();
+    case RETRAIN_SW_UNSUPERVISED_MODE:
+      //retrainSWPoST();
+      break;
+      
+    case TAGGER_HMM_MODE:
+      tagger();
+      break;
+
+    case TAGGER_SW_MODE:
       taggerSWPoST();
       break;
 
-    case TAGGER_FIRST_MODE:
-      //tagger(true);
+    case TAGGER_HMM_FIRST_MODE:
+      tagger(true);
+      break;
+
+    case TAGGER_SW_FIRST_MODE:
       taggerSWPoST(true);
       break;
 
@@ -575,27 +653,26 @@ Tagger::help() {
   strcpy(localname, name.c_str());
   out << basename(localname) << ": HMM part-of-speech tagging and training program" << endl;
   out << "GENERIC USAGE: " << basename(localname) << "[-d] <OPTION>=[PARAM] [FILES]" << endl;
-  out << "USAGE: " << basename(localname) << "[-d] -t=n DIC CRP TSX TAGGER_DATA" << endl;
-  out << "       " << basename(localname) << "[-d] -s=n DIC CRP TSX TAGGER_DATA HTAG UNTAG" << endl;
-  out << "       " << basename(localname) << "[-d] -r=n CRP TAGGER_DATA" << endl;
-  out << "       " << basename(localname) << "[-d] -g [-f] TAGGER_DATA [INPUT [OUTPUT]]" << endl;
+  out << "USAGE: " << basename(localname) << "[-d] [-w] -t=n DIC CRP TSX TAGGER_DATA" << endl;
+  out << "       " << basename(localname) << "[-d] [-w] -s=n DIC CRP TSX TAGGER_DATA HTAG UNTAG" << endl;
+  out << "       " << basename(localname) << "[-d] [-w] -r=n CRP TAGGER_DATA" << endl;
+  out << "       " << basename(localname) << "[-d] [-w] -g [-f] TAGGER_DATA [INPUT [OUTPUT]]" << endl;
   out << endl;
   out << "Where OPTIONS are:" << endl;
-  out << "  -t, --train=n:       performs n iterations of the Baum-Welch training" << endl;
-  out << "                       algorithm (unsupervised)" << endl;
-  out << "  -s, --supervised=n:  initializes parameters against a hand-tagged text" << endl;
-  out << "                       (supervised), and trains it with n iterations" << endl;
-  out << "  -r, --retrain=n:     retrains the model with n aditional Baum-Welch" << endl;
-  out << "                       iterations (unsupervised)" << endl;
-  out << "  -g, --tagger:        tags input text by means of Viterbi algorithm" << endl;
-  out << "  -p, --show-superficial: " << endl;
-  out << "                       show superficial forms in the output stream" << endl;
-  out << "  -f, --first:         used in conjuntion with -g (--tagger) makes the tagger"<< endl;
-  out << "                       give all lexical forms of each word, with the chosen" << endl;
-  out << "                       one in the first place (after the lemma)"<<endl;
-  out << "  -d, --debug:         print error mesages when tagging input text" << endl;
-  out << "  -m, --mark:          generate marks of solved ambiguities" << endl;
-  out << "  -z, --null-flush:    flush output stream when reading '\\0' characters" <<endl;
+  out << "  -w, --sliding-window:   use the Sliding-Window training and tagging algorithm," << endl;
+  out << "                          or if not specified, use the HMM algorithm by default" << endl;
+  out << "  -t, --train=n:          performs n iterations of training (unsupervised)" << endl;
+  out << "  -s, --supervised=n:     initializes parameters against a hand-tagged text (supervised)," << endl;
+  out << "                          and trains it with n iterations" << endl;
+  out << "  -r, --retrain=n:        retrains the model with n aditional iterations (unsupervised)" << endl;
+  out << "  -g, --tagger:           tags input text" << endl;
+  out << "  -p, --show-superficial: show superficial forms in the output stream" << endl;
+  out << "  -f, --first:            used in conjuntion with -g (--tagger) makes the tagger"<< endl;
+  out << "                          give all lexical forms of each word, with the chosen" << endl;
+  out << "                          one in the first place (after the lemma)"<<endl;
+  out << "  -d, --debug:            print error mesages when tagging input text" << endl;
+  out << "  -m, --mark:             generate marks of solved ambiguities" << endl;
+  out << "  -z, --null-flush:       flush output stream when reading '\\0' characters" <<endl;
   out << endl;
   out << "And FILES are:" << endl;          
   out << "  DIC:         full expanded dictionary file" << endl;

@@ -33,15 +33,22 @@ using namespace std;
 class Tagger
 {
 private:
+
   enum Mode{UNKNOWN_MODE,
-            TRAIN_MODE,
-            TAGGER_MODE,
-            RETRAIN_MODE,
-            TAGGER_SUPERVISED_MODE,
-            TRAIN_SUPERVISED_MODE,
-            RETRAIN_SUPERVISED_MODE,
-            TAGGER_EVAL_MODE,
-            TAGGER_FIRST_MODE};
+            TRAIN_HMM_UNSUPERVISED_MODE,
+            TRAIN_HMM_SUPERVISED_MODE,
+            RETRAIN_HMM_UNSUPERVISED_MODE,
+            RETRAIN_HMM_SUPERVISED_MODE,
+            TAGGER_HMM_MODE,
+            TAGGER_HMM_EVAL_MODE,
+            TAGGER_HMM_FIRST_MODE,
+            TRAIN_SW_UNSUPERVISED_MODE,
+            TRAIN_SW_SUPERVISED_MODE,
+            RETRAIN_SW_UNSUPERVISED_MODE,
+            RETRAIN_SW_SUPERVISED_MODE,
+            TAGGER_SW_MODE,
+            TAGGER_SW_EVAL_MODE,
+            TAGGER_SW_FIRST_MODE};
             
   vector<string> filenames;
   int nit;
@@ -50,6 +57,7 @@ private:
   
   bool showSF; // show superficial forms
   bool null_flush; // flush on '\0'
+  bool is_sw; // use Sliding-Window algorithm, other than HMM
   
   void setShowSF(bool val);
   bool getShowSF();
