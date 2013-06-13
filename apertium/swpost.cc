@@ -368,7 +368,7 @@ SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
 	s_left =  output[tags_left];
 	s_right = output[tags_right];
 
-	double max = 0;
+	double max = -1;
 	TTag tag_max = 0;
 	for (set<TTag>::iterator iter = tags.begin(); iter != tags.end(); ++iter) {
 		double n = (td->getC())[s_left][s_right][*iter];
