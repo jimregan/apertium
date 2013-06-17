@@ -320,19 +320,15 @@ SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
   Collection &output = td->getOutput();
   
   word_left = morpho_stream.get_next_word();
-  word_left->set_show_sf(true);
-  if(morpho_stream.getEndOfFile()) {
-     return;
-  }
   word = morpho_stream.get_next_word();
-  word->set_show_sf(true);
-  if(morpho_stream.getEndOfFile()) {
-     return;
-  }
   word_right = morpho_stream.get_next_word();
-  word_right->set_show_sf(true);
-  if(morpho_stream.getEndOfFile()) {
-     return;
+  
+  if (word_left == NULL || word == NULL || word_right == NULL) {
+    return;
+  } else {
+    word_left->set_show_sf(true);
+    word->set_show_sf(true);
+    word_right->set_show_sf(true);
   }
 
   wstring micad;
@@ -385,12 +381,8 @@ SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
 	word_left = word;
 	word = word_right;
 	word_right = morpho_stream.get_next_word();
-	word_right->set_show_sf(true);
-	
-	if(morpho_stream.getEndOfFile()) {
-		fflush(out);
-		morpho_stream.setEndOfFile(false);
-		break;
+	if (word_right != NULL) {
+		word_right->set_show_sf(true);
 	}
   }
 

@@ -541,6 +541,7 @@ Tagger::trainSWPoST() {
   for(int i=0; i != nit; i++) {
     fseek(fcrp, 0, SEEK_SET);
     swpost.train(fcrp);
+    wcerr << L"iteration " << (i + 1) << " done" << endl;
   }
 
   fclose(fdic);
