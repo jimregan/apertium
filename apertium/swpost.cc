@@ -302,6 +302,15 @@ void SWPoST::train(FILE *ftxt) {
 
 void
 SWPoST::print_para_matrix() {
+  wcout << L"para matrix C\n----------------------------\n";
+  for (int i = 0; i < td->getM(); ++i) {
+    for (int j = 0; j < td->getM(); ++j) {
+      for (int k = 0; k < td->getN(); ++k) {
+        wcout << L"C[" << i << L"][" << j << L"][" << k << L"] = "
+            << td->getC()[i][j][k] << "\n";
+      }
+    }
+  }
 }
 
 
