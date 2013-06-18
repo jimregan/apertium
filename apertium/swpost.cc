@@ -48,18 +48,31 @@ using namespace std;
 using namespace Apertium;
 using namespace tagger_utils;
 
-SWPoST::SWPoST(TaggerData *t)
-{
+SWPoST::SWPoST(TaggerData *t) {
   this->td = t;
+  debug=false;
+  show_sf=false;
+  null_flush = false;
+  eos = (td->getTagIndex())[L"TAG_SENT"];  
 }
 
-SWPoST::~SWPoST()
-{
+SWPoST::~SWPoST() {
 }
 
-void
-SWPoST::init()
-{
+void SWPoST::set_eos(TTag t) { 
+  eos = t; 
+} 
+
+void SWPoST::set_debug(bool d) { 
+  debug = d; 
+} 
+
+void SWPoST::set_show_sf(bool sf) { 
+  show_sf = sf; 
+}
+ 
+void SWPoST::setNullFlush(bool nf) {
+  null_flush = nf;
 }
 
 void SWPoST::init_probabilities(FILE *ftxt) {
@@ -324,7 +337,8 @@ SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
   
   set <TTag> tags_left, tags, tags_right;
   
-  MorphoStream morpho_stream(in, true, td);                             
+  MorphoStream morpho_stream(in, debug, td);
+  morpho_stream.setNullFlush(null_flush);                      
   
   Collection &output = td->getOutput();
   

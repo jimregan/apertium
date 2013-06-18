@@ -48,15 +48,11 @@
  */
 class SWPoST {
 private:
-   TaggerData *td;
-   TTag eos; // end-of-sentence tag
-
-   /** It allocs memory for the transition (a) and the emission (b) matrices.
-    *  Before calling this method the number of ambiguity classes must be known.
-    *  This methos is called within read_ambiguity_classes and read_dictionary.
-    *  @see: read_ambiguity_classes, read_dictionary
-    */
-   void init();
+  TaggerData *td;
+  TTag eos; // end-of-sentence tag
+  bool debug; //If true, print error messages when tagging input text
+  bool show_sf; //If true, print superficial forms when tagging input text
+  bool null_flush; //If true, flush on '\0'
 
 public:
    /** Constructor
@@ -66,6 +62,23 @@ public:
    /** Destructor
     */
    ~SWPoST();
+
+   /** Used to set the end-of-sentence tag
+    *  @param t the end-of-sentence tag
+    */
+   void set_eos(TTag t);
+   
+   /** Used to set the debug flag
+    */
+   void set_debug(bool d);
+
+   /** Used to set the show superficial forms flag 
+    */
+   void set_show_sf(bool sf);
+
+   /** Used to set the null_flush flag 
+    */
+   void setNullFlush(bool nf);
 
    /** It reads the expanded dictionary received as a parameter and calculates
     *  the set of ambiguity classes that the tagger will manage.
