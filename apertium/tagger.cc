@@ -228,7 +228,7 @@ Tagger::getMode(int argc, char *argv[]) {
         if(mode==TAGGER_HMM_MODE) {
           mode = TAGGER_HMM_FIRST_MODE;
         }
-        else if (mode = TAGGER_SW_MODE) {
+        else if (mode == TAGGER_SW_MODE) {
           mode = TAGGER_SW_FIRST_MODE;
         }
         else {
@@ -428,6 +428,8 @@ Tagger::taggerSWPoST(bool mode_first) {
   fclose(ftdata);
   
   SWPoST swpost(&td);
+  swpost.set_show_sf(showSF);
+  swpost.setNullFlush(null_flush);
 
   if(filenames.size() == 1) {
     swpost.taggerSWPoST(stdin, stdout, mode_first);
@@ -515,6 +517,8 @@ Tagger::trainSWPoST() {
   TSXReader treader;
   treader.read(filenames[2]);
   SWPoST swpost(&(treader.getTaggerData()));
+  swpost.set_debug(debug);
+  swpost.set_eos(treader.getTaggerData().getTagIndex()[L"TAG_SENT"]);
   TaggerWord::setArrayTags(treader.getTaggerData().getArrayTags());
 
   wcerr << L"Calculating ambiguity classes...\n";
@@ -541,7 +545,7 @@ Tagger::trainSWPoST() {
   for(int i=0; i != nit; i++) {
     fseek(fcrp, 0, SEEK_SET);
     swpost.train(fcrp);
-    wcerr << L"iteration " << (i + 1) << " done" << endl;
+    wcerr << L"iteration " << (i + 1) << " done." << endl;
   }
 
   fclose(fdic);

@@ -98,16 +98,24 @@ void SWPoST::init_probabilities(FILE *ftxt) {
 
 	Collection &output = td->getOutput();
 
-	MorphoStream lexmorfo(ftxt, true, td);
+	MorphoStream morpho_stream(ftxt, true, td);
 	
 	set<TTag> tags_left, tags, tags_right;
-
-	TaggerWord *word_left = lexmorfo.get_next_word();
-	TaggerWord *word = lexmorfo.get_next_word();
-	TaggerWord *word_right = lexmorfo.get_next_word();
-	if (word_left == NULL || word == NULL || word_right == NULL) {
-		return;
-	}
+	
+	TaggerWord *word_left = new TaggerWord(); // word_left
+        word_left->add_tag(eos, L"sent", td->getPreferRules());
+        TaggerWord *word = morpho_stream.get_next_word(); // word
+        if (morpho_stream.getEndOfFile()) {
+                delete word_left;
+                delete word;
+                return;
+        }
+        TaggerWord *word_right = morpho_stream.get_next_word(); // word_right
+        if (morpho_stream.getEndOfFile()) {
+                delete word_right;
+                word_right = new TaggerWord();
+                word_right->add_tag(eos, L"sent", td->getPreferRules());
+        }
 
 	//We count each element of the para matrix
 	while (word_right != NULL) {
@@ -150,8 +158,15 @@ void SWPoST::init_probabilities(FILE *ftxt) {
 		delete word_left;
 		word_left = word;
 		word = word_right;
-		word_right = lexmorfo.get_next_word();
+		word_right = morpho_stream.get_next_word();
+                if (morpho_stream.getEndOfFile() && word_right != NULL) {
+                        delete word_right;
+                        word_right = new TaggerWord();
+                        word_right->add_tag(eos, L"sent", td->getPreferRules());
+                }
 	}
+	delete word_left;
+	delete word;
 
 	// get normalized count, by context of "s_left ... s_right"
 	for (i = 0; i < M; ++i) {
@@ -245,11 +260,19 @@ void SWPoST::train(FILE *ftxt) {
 
 	MorphoStream morpho_stream(ftxt, true, td);
 
-	TaggerWord *word_left = morpho_stream.get_next_word();
-	TaggerWord *word = morpho_stream.get_next_word();
-	TaggerWord *word_right = morpho_stream.get_next_word();
-	if (word_left == NULL || word == NULL || word_right == NULL) {
+	TaggerWord *word_left = new TaggerWord(); // word_left
+	word_left->add_tag(eos, L"sent", td->getPreferRules());
+	TaggerWord *word = morpho_stream.get_next_word(); // word
+	if (morpho_stream.getEndOfFile()) {
+		delete word_left;
+		delete word;
 		return;
+	}
+	TaggerWord *word_right = morpho_stream.get_next_word(); // word_right
+	if (morpho_stream.getEndOfFile()) {
+		delete word_right;
+		word_right = new TaggerWord();
+		word_right->add_tag(eos, L"sent", td->getPreferRules());
 	}
 
 	while (word_right) {
@@ -299,7 +322,14 @@ void SWPoST::train(FILE *ftxt) {
 		word_left = word;
 		word = word_right;
 		word_right = morpho_stream.get_next_word();
+		if (morpho_stream.getEndOfFile() && word_right != NULL) {
+			delete word_right;
+			word_right = new TaggerWord();
+			word_right->add_tag(eos, L"sent", td->getPreferRules());
+		}
 	}
+	delete word_left;
+	delete word;
 
 	//td-setSWPoSTProbabilities(N, M, (double ***)para_matrix_new);
 	for (i = 0; i < M; ++i) {
@@ -331,10 +361,7 @@ SWPoST::print_para_matrix() {
 void 
 SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
   int s_left, s_right;
-  TaggerWord *word_left = NULL;
-  TaggerWord *word = NULL;
-  TaggerWord *word_right = NULL;
-  
+
   set <TTag> tags_left, tags, tags_right;
   
   MorphoStream morpho_stream(in, debug, td);
@@ -342,24 +369,26 @@ SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
   
   Collection &output = td->getOutput();
   
-  word_left = morpho_stream.get_next_word();
-  word = morpho_stream.get_next_word();
-  word_right = morpho_stream.get_next_word();
-  
-  if (word_left == NULL || word == NULL || word_right == NULL) {
-    return;
-  } else {
-    word_left->set_show_sf(true);
-    word->set_show_sf(true);
-    word_right->set_show_sf(true);
+  TaggerWord *word_left = new TaggerWord(); // word_left
+  word_left->add_tag(eos, L"sent", td->getPreferRules());
+  word_left->set_show_sf(show_sf);
+  TaggerWord *word = morpho_stream.get_next_word(); // word
+  if (morpho_stream.getEndOfFile()) {
+	delete word_left;
+	delete word;
+	return;
   }
+  word->set_show_sf(show_sf);
+  TaggerWord *word_right = morpho_stream.get_next_word(); // word_right
+  if (morpho_stream.getEndOfFile()) {
+	delete word_right;
+	word_right = new TaggerWord();
+	word_right->add_tag(eos, L"sent", td->getPreferRules());
+  }
+  word_right->set_show_sf(show_sf);
 
   wstring micad;
 
-  //first word, naive.
-  micad = word_left->get_lexical_form((TTag &)*(word_left->get_tags().begin()), (td->getTagIndex())[L"TAG_kEOF"]);
-  fputws_unlocked(micad.c_str(), out);
- 
   while (word_right) {
 
   	tags_left = word_left->get_tags();
@@ -405,13 +434,16 @@ SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
 	word = word_right;
 	word_right = morpho_stream.get_next_word();
 	if (word_right != NULL) {
-		word_right->set_show_sf(true);
+		if (morpho_stream.getEndOfFile()) {
+			delete word_right;
+                	word_right = new TaggerWord();
+                	word_right->add_tag(eos, L"sent", td->getPreferRules());
+		}
+		word_right->set_show_sf(show_sf);
 	}
   }
-
-  //last word, naive.
-  micad = word->get_lexical_form((TTag&)*(word->get_tags().begin()), (td->getTagIndex())[L"TAG_kEOF"]);
-  fputws_unlocked(micad.c_str(), out);
+  delete word_left;
+  delete word;
 
   wcerr << L"\n";
 }
