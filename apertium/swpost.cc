@@ -80,21 +80,8 @@ void SWPoST::init_probabilities(FILE *ftxt) {
 	int M = td->getM();
 	int i, j, k, s_left, s_right, nw = 0; //sigma_left, sigma_right
 
-#ifdef __GNUC__
-	float para_matrix[M][M][N]; //M = Number of ambiguity classes, N = Number of fine tags
-	int para_matrix_sum[M][M];
-	for (i = 0; i < M; ++i) {
-		for (j = 0; j < M; ++j) {
-			para_matrix_sum[i][j] = 0;
-			for (k = 0; k < N; ++k ) {
-				para_matrix[i][j][k] = 0;
-			}
-		}
-	}
-#else
 	vector<vector<vector< float > > > para_matrix(M, vector<vector<float> >(M, vector<float>(N, 0)));
 	vector<vector< int > > para_matrix_sum(M, vector<int>(M, 0));
-#endif
 
 	Collection &output = td->getOutput();
 
@@ -231,18 +218,7 @@ void SWPoST::train(FILE *ftxt) {
 	int M = td->getM();
 	int i, j, k, s_left, s_right, nw = 0; //sigma_left, sigma_right
 
-#ifdef __GNUC__
-	float para_matrix_new[M][M][N]; //M = Number of ambiguity classes, N = Number of tags (states)
-	for (i = 0; i < M; ++i) {
-		for (j = 0; j < M; ++j) {
-			for (k = 0; k < N; ++k ) {
-				para_matrix_new[i][j][k] = 0;
-			}
-		}
-	}
-#else
 	vector<vector<vector<float> > > para_matrix_new(M, vector<vector<float > >(M, vector<float>(N, 0)));
-#endif
 
 	set<TTag> tags_left, tags, tags_right;
 
