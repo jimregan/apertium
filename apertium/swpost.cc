@@ -118,7 +118,7 @@ void SWPoST::init_probabilities(FILE *ftxt) {
 			tags_right = td->getOpenClass();
 		}
 
-		if (output.has_not(tags) || output.has_not(tags_left)
+		if (output.has_not(tags_left) || output.has_not(tags)
 				|| output.has_not(tags_right)) {
 			wstring errors;
 			errors = L"A new ambiguity class was found. I cannot continue.\n";
@@ -134,8 +134,8 @@ void SWPoST::init_probabilities(FILE *ftxt) {
 		for (set<TTag>::iterator iter = tags.begin();
 				iter != tags.end(); ++iter) {
 			para_matrix[s_left][s_right][*iter]++;
+			para_matrix_sum[s_left][s_right]++;
 		}
-		para_matrix_sum[s_left][s_right]++;
 
 		delete word_left;
 		word_left = word;
@@ -149,8 +149,12 @@ void SWPoST::init_probabilities(FILE *ftxt) {
 	for (i = 0; i < M; ++i) {
 		for (j = 0; j < M; ++j) {
 			for (k = 0; k < N; ++k) {
-				para_matrix[i][j][k] = para_matrix[i][j][k]
-						/ para_matrix_sum[i][j];
+				if (para_matrix_sum[i][j] == 0) {
+					para_matrix[i][j][k] = 0;
+				} else {
+					para_matrix[i][j][k] = para_matrix[i][j][k] / para_matrix_sum[i][j];
+					
+				}
 			}
 		}
 	}
