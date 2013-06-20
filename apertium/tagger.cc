@@ -343,7 +343,7 @@ Tagger::main(int argc, char *argv[]) {
       break;
       
     case RETRAIN_SW_UNSUPERVISED_MODE:
-      //retrainSWPoST();
+      retrainSWPoST();
       break;
       
     case TAGGER_HMM_MODE:
@@ -541,11 +541,11 @@ Tagger::trainSWPoST() {
     filerror(filenames[1]);
   }
 
-  wcerr << L"Training (Unsupervised)...\n";
+  wcerr << L"Training (Sliding-Window, Unsupervised)...\n";
   for(int i=0; i != nit; i++) {
     fseek(fcrp, 0, SEEK_SET);
     swpost.train(fcrp);
-    wcerr << L"iteration " << (i + 1) << " done." << endl;
+    wcout << L"iteration " << (i + 1) << " done." << endl;
   }
 
   fclose(fdic);
@@ -648,6 +648,44 @@ Tagger::retrain() {
     filerror(filenames[1]);
   }
   td.write(ftdata);
+  fclose(ftdata);
+}
+
+void
+Tagger::retrainSWPoST() {
+  TaggerData td;
+  FILE *ftdata = fopen(filenames[1].c_str(), "rb");
+  if(!ftdata) {
+    filerror(filenames[1]);
+  }
+  td.readSWPoST(ftdata);
+  fclose(ftdata);
+
+  SWPoST swpost(&td);
+  swpost.set_debug(debug);
+  swpost.set_eos((td.getTagIndex())[L"TAG_SENT"]);
+  TaggerWord::setArrayTags(td.getArrayTags());
+
+  FILE *fcrp = fopen(filenames[0].c_str(), "r");
+  if(!fcrp)  {
+    filerror(filenames[0]);
+  }
+#ifdef _MSC_VER
+  _setmode(_fileno(fcrp), _O_U8TEXT);
+#endif 
+  wcerr << L"Training (Sliding-Window, Unsupervised)...\n";
+  for(int i=0; i != nit; i++)  {
+    fseek(fcrp, 0, SEEK_SET);
+    swpost.train(fcrp);
+    wcout << L"iteration " << (i + 1) << " done." << endl;
+  }
+  fclose(fcrp);
+
+  ftdata = fopen(filenames[1].c_str(), "wb");
+  if(!ftdata)  {
+    filerror(filenames[1]);
+  }
+  td.writeSWPoST(ftdata);
   fclose(ftdata);
 }
 

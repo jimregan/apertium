@@ -68,6 +68,7 @@ private:
   void train();
   void trainSWPoST();
   void retrain();
+  void retrainSWPoST();
   void trainSupervised();
   void help();
   void filerror(string const &filename);  
