@@ -17,6 +17,7 @@
  * 02111-1307, USA.
  */
 #include <apertium/hmm.h>
+#include <apertium/swpost.h>
 #include <apertium/tagger_data.h>
 #include <lttoolbox/compression.h>
 #include <apertium/endian_double_util.h>
@@ -63,13 +64,13 @@ TaggerData::destroy()
   b = NULL;
 
   if (c != NULL) {
-	for (int i = 0; i < M; ++i) {
-		for (int j = 0; j < M; ++j) {
-			delete [] c[i][j];
-		}
-		delete [] c[i];
-	}
-	delete [] c;
+  for (int i = 0; i < M; ++i) {
+    for (int j = 0; j < M; ++j) {
+      delete [] c[i][j];
+    }
+    delete [] c[i];
+  }
+  delete [] c;
   }
   c = NULL;
   N = 0;
@@ -265,25 +266,25 @@ TaggerData::setProbabilities(int const myN, int const myM,
 }
 
 void TaggerData::setSWPoSTProbabilities(int const myN, int const myM, double ***myC) {
-	 this->destroy();
-	 N = myN;
-	 M = myM;
-	 if(N != 0 && M != 0) {
-		 c = new double ** [M];
-		 for (int i = 0; i < M; ++i) {
-			 c[i] = new double * [M];
-			 for (int j = 0; j < M; ++j) {
-			     c[i][j] = new double [N];
-			     if (myC != NULL) {
-			        for (int k = 0; k < N; ++k) {
-				    c[i][j][k] = myC[i][j][k];
-				}
-			     }
-			 }
-		 }
-	 } else {
-		 c = NULL;
-	 }
+   this->destroy();
+   N = myN;
+   M = myM;
+   if(N != 0 && M != 0) {
+     c = new double ** [M];
+     for (int i = 0; i < M; ++i) {
+       c[i] = new double * [M];
+       for (int j = 0; j < M; ++j) {
+           c[i][j] = new double [N];
+           if (myC != NULL) {
+              for (int k = 0; k < N; ++k) {
+            c[i][j][k] = myC[i][j][k];
+        }
+           }
+       }
+     }
+   } else {
+     c = NULL;
+   }
 }
 
 double ** 
@@ -300,7 +301,7 @@ TaggerData::getB()
 
 double ***
 TaggerData::getC() {
-	return c;
+  return c;
 }
 
 int 
@@ -421,7 +422,7 @@ TaggerData::read(FILE *in)
   // read nonZERO values of b
   int nval = Compression::multibyte_read(in);
 
-  for(; nval != 0; nval--)
+  for(; nval != 0; --nval)
   {
     int i = Compression::multibyte_read(in);
     int j = Compression::multibyte_read(in);
@@ -513,21 +514,29 @@ TaggerData::readSWPoST(FILE *in)
 
   c = new double ** [M];
   for ( int i = 0; i < M; ++i) {
-	c[i] = new double * [M];
-	for (int j = 0; j < M; ++j) {
-		c[i][j] = new double [N];
-	}
+  c[i] = new double * [M];
+  for (int j = 0; j < M; ++j) {
+    c[i][j] = new double [N];
   }
-   
-  // read c
-  for( int i = 0; i < M; ++i) {
-	for( int j = 0; j < M; ++j) {
-		for ( int k = 0; k < N; ++k) {
-		      c[i][j][k] = EndianDoubleUtil::read(in);
-		}
-    	}
   }
 
+  // initializing c matrix
+  for (int i = 0; i < M; ++i) {
+    for (int j = 0; j < M; ++j) {
+      for (int k = 0; k < N; ++k) {
+        c[i][j][k] = 0;
+      }
+    }
+  }
+
+  int nval = Compression::multibyte_read(in);
+  for(; nval != 0; nval--) {
+    int i = Compression::multibyte_read(in);
+    int j = Compression::multibyte_read(in);
+    int k = Compression::multibyte_read(in);
+    c[i][j][k] = EndianDoubleUtil::read(in);
+  }
+   
   // read pattern list
   plist.read(in);
     
@@ -630,7 +639,7 @@ TaggerData::write(FILE *out)
     {
       if(output[j].find(i) != output[j].end())
       {
-	nval++;
+        nval++;
       }
     }
   }
@@ -642,9 +651,9 @@ TaggerData::write(FILE *out)
     {
       if(output[j].find(i) != output[j].end())
       {
-	Compression::multibyte_write(i, out);
-	Compression::multibyte_write(j, out);
-	EndianDoubleUtil::write(out, b[i][j]);
+        Compression::multibyte_write(i, out);
+        Compression::multibyte_write(j, out);
+        EndianDoubleUtil::write(out, b[i][j]);
       }
     }
   }  
@@ -731,12 +740,30 @@ TaggerData::writeSWPoST(FILE *out)
   // c matrix
   Compression::multibyte_write(M, out);
   Compression::multibyte_write(N, out);
+
+  int nval = 0;
   for (int i = 0; i < M; ++i) {
-	for (int j = 0; j < M; ++j) {
-		for (int k = 0; k < N; ++k) {
-			EndianDoubleUtil::write(out, c[i][j][k]);
-		}
-	}
+    for (int j = 0; j < M; ++j) {
+      for (int k = 0; k < N; ++k) {
+        if (c[i][j][k] > ZERO) {
+          ++nval;
+        }
+      }
+    }
+  }
+  Compression::multibyte_write(nval, out);
+
+  for (int i = 0; i < M; ++i) {
+    for (int j = 0; j < M; ++j) {
+      for (int k = 0; k < N; ++k) {
+        if (c[i][j][k] != 0) {
+          Compression::multibyte_write(i, out);
+          Compression::multibyte_write(j, out);
+          Compression::multibyte_write(k, out);
+          EndianDoubleUtil::write(out, c[i][j][k]);
+        }
+      }
+    }
   }
   
   // write pattern list

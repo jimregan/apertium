@@ -43,6 +43,8 @@
 #include <apertium/tagger_word.h>
 
 
+#define ZERO 1e-10
+
 /** SWPoST
  *  Sliding-Window Part of Speech Tagger
  */
