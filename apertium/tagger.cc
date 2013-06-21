@@ -323,43 +323,43 @@ Tagger::main(int argc, char *argv[]) {
 
   switch(mode)  {
     case TRAIN_HMM_UNSUPERVISED_MODE:
-      train();
+      trainHMM();
       break;
 
     case TRAIN_SW_UNSUPERVISED_MODE:
-      trainSWPoST();
+      trainSW();
       break;
     
     case TRAIN_HMM_SUPERVISED_MODE:
-      trainSupervised();
+      trainHMMSupervised();
       break;
 
     case TRAIN_SW_SUPERVISED_MODE:
-      //trainSupervisedSWPoST();
+      trainSWSupervised();
       break;
 
     case RETRAIN_HMM_UNSUPERVISED_MODE:
-      retrain();
+      retrainHMM();
       break;
       
     case RETRAIN_SW_UNSUPERVISED_MODE:
-      retrainSWPoST();
+      retrainSW();
       break;
       
     case TAGGER_HMM_MODE:
-      tagger();
+      taggerHMM();
       break;
 
     case TAGGER_SW_MODE:
-      taggerSWPoST();
+      taggerSW();
       break;
 
     case TAGGER_HMM_FIRST_MODE:
-      tagger(true);
+      taggerHMM(true);
       break;
 
     case TAGGER_SW_FIRST_MODE:
-      taggerSWPoST(true);
+      taggerSW(true);
       break;
 
     default:
@@ -370,7 +370,7 @@ Tagger::main(int argc, char *argv[]) {
 }
 
 void
-Tagger::tagger(bool mode_first) {
+Tagger::taggerHMM(bool mode_first) {
   FILE *ftdata = fopen(filenames[0].c_str(), "rb");
   if (!ftdata) {
     filerror(filenames[0]);
@@ -417,7 +417,7 @@ Tagger::tagger(bool mode_first) {
 
 
 void
-Tagger::taggerSWPoST(bool mode_first) {
+Tagger::taggerSW(bool mode_first) {
   FILE *ftdata = fopen(filenames[0].c_str(), "rb");
   if (!ftdata) {
     filerror(filenames[0]);
@@ -468,7 +468,7 @@ Tagger::filerror(string const &filename) {
 }
 
 void
-Tagger::train() {
+Tagger::trainHMM() {
   TSXReader treader;
   treader.read(filenames[2]);
   HMM hmm(&(treader.getTaggerData()));
@@ -513,7 +513,7 @@ Tagger::train() {
 }
 
 void
-Tagger::trainSWPoST() {
+Tagger::trainSW() {
   TSXReader treader;
   treader.read(filenames[2]);
   SWPoST swpost(&(treader.getTaggerData()));
@@ -554,7 +554,7 @@ Tagger::trainSWPoST() {
 }
 
 void
-Tagger::trainSupervised() {
+Tagger::trainHMMSupervised() {
   TSXReader treader;
   treader.read(filenames[2]);
   HMM hmm(&(treader.getTaggerData()));
@@ -613,7 +613,11 @@ Tagger::trainSupervised() {
 }
 
 void
-Tagger::retrain() {
+Tagger::trainSWSupervised() {
+}
+
+void
+Tagger::retrainHMM() {
   TaggerData td;
   FILE *ftdata = fopen(filenames[1].c_str(), "rb");
   if(!ftdata) {
@@ -652,7 +656,7 @@ Tagger::retrain() {
 }
 
 void
-Tagger::retrainSWPoST() {
+Tagger::retrainSW() {
   TaggerData td;
   FILE *ftdata = fopen(filenames[1].c_str(), "rb");
   if(!ftdata) {

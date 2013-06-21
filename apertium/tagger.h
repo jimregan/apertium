@@ -63,13 +63,14 @@ private:
   bool getShowSF();
 
   int getMode(int argc, char *argv[]);
-  void tagger(bool model_first=false);
-  void taggerSWPoST(bool model_first=false);
-  void train();
-  void trainSWPoST();
-  void retrain();
-  void retrainSWPoST();
-  void trainSupervised();
+  void taggerHMM(bool model_first=false);
+  void taggerSW(bool model_first=false);
+  void trainHMM();
+  void trainSW();
+  void retrainHMM();
+  void retrainSW();
+  void trainHMMSupervised();
+  void trainSWSupervised();
   void help();
   void filerror(string const &filename);  
   bool isNumber(const char *str);
