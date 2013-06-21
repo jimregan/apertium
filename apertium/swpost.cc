@@ -85,8 +85,7 @@ SWPoST::init_probabilities(FILE *ftxt) {
   int M = td->getM();
   int i, j, k, s_left, s_right, nw = 0; //sigma_left, sigma_right
 
-  vector<vector<vector< float > > > para_matrix(M, vector<vector<float> >(M, vector<float>(N, 0)));
-  vector<vector< int > > para_matrix_sum(M, vector<int>(M, 0));
+  vector<vector<vector<double> > > para_matrix(M, vector<vector<double> >(M, vector<double>(N, 0)));
 
   Collection &output = td->getOutput();
 
@@ -95,14 +94,14 @@ SWPoST::init_probabilities(FILE *ftxt) {
   set<TTag> tags_left, tags, tags_right;
   
   TaggerWord *word_left = new TaggerWord(); // word_left
-        word_left->add_tag(eos, L"sent", td->getPreferRules());
-        TaggerWord *word = morpho_stream.get_next_word(); // word
-        if (morpho_stream.getEndOfFile()) {
-                delete word_left;
-                delete word;
-                return;
-        }
-        TaggerWord *word_right = morpho_stream.get_next_word(); // word_right
+  word_left->add_tag(eos, L"sent", td->getPreferRules());
+  TaggerWord *word = morpho_stream.get_next_word(); // word
+  if (morpho_stream.getEndOfFile()) {
+    delete word_left;
+    delete word;
+    return;
+  }
+  TaggerWord *word_right = morpho_stream.get_next_word(); // word_right
 
   //We count each element of the para matrix
   while (word_right != NULL) {
@@ -138,8 +137,7 @@ SWPoST::init_probabilities(FILE *ftxt) {
 
     for (set<TTag>::iterator iter = tags.begin();
         iter != tags.end(); ++iter) {
-      para_matrix[s_left][s_right][*iter]++;
-      para_matrix_sum[s_left][s_right]++;
+      para_matrix[s_left][s_right][*iter] += 1.0 / tags.size();
     }
 
     delete word_left;
@@ -150,19 +148,6 @@ SWPoST::init_probabilities(FILE *ftxt) {
   delete word_left;
   delete word;
 
-  // get normalized count, by context of "s_left ... s_right"
-  for (i = 0; i < M; ++i) {
-    for (j = 0; j < M; ++j) {
-      for (k = 0; k < N; ++k) {
-        if (para_matrix_sum[i][j] == 0) {
-          para_matrix[i][j][k] = 0;
-        } else {
-          para_matrix[i][j][k] = para_matrix[i][j][k] / para_matrix_sum[i][j];
-          
-        }
-      }
-    }
-  }
   //td->setSWPoSTProbabilities(N, M, para_matrix);
   for (i = 0; i < M; ++i) {
           for (j = 0; j < M; ++j) {
@@ -302,7 +287,7 @@ SWPoST::train(FILE *ftxt) {
   for (i = 0; i < M; ++i) {
           for (j = 0; j < M; ++j) {
                   for (k = 0; k < N; ++k) {
-        td->getC()[i][j][k] = para_matrix_new[i][j][k];
+        td->getC()[i][j][k] = td->getC()[i][j][k] * para_matrix_new[i][j][k];
       }
     }
   }

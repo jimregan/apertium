@@ -756,7 +756,7 @@ TaggerData::writeSWPoST(FILE *out)
   for (int i = 0; i < M; ++i) {
     for (int j = 0; j < M; ++j) {
       for (int k = 0; k < N; ++k) {
-        if (c[i][j][k] != 0) {
+        if (c[i][j][k] > ZERO) {
           Compression::multibyte_write(i, out);
           Compression::multibyte_write(j, out);
           Compression::multibyte_write(k, out);
