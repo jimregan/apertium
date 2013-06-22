@@ -65,12 +65,16 @@ private:
   int getMode(int argc, char *argv[]);
   void taggerHMM(bool model_first=false);
   void taggerSW(bool model_first=false);
+  void taggerLSW(bool model_first=false);
   void trainHMM();
   void trainSW();
+  void trainLSW();
   void retrainHMM();
   void retrainSW();
+  void retrainLSW();
   void trainHMMSupervised();
   void trainSWSupervised();
+  void trainLSWSupervised();
   void help();
   void filerror(string const &filename);  
   bool isNumber(const char *str);

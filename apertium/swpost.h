@@ -103,6 +103,6 @@ public:
 
    /** Do the tagging
     */
-   void taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first);
+   void tagger(FILE *in, FILE *out, bool show_all_good_first);
 };
 #endif

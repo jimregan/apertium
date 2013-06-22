@@ -214,7 +214,7 @@ SWPoST::train(FILE *ftxt) {
   int M = td->getM();
   int i, j, k, s_left, s_right, nw = 0; //sigma_left, sigma_right
 
-  vector<vector<vector<float> > > para_matrix_new(M, vector<vector<float > >(M, vector<float>(N, 0)));
+  vector<vector<vector<double> > > para_matrix_new(M, vector<vector<double> >(M, vector<double>(N, 0)));
 
   set<TTag> tags_left, tags, tags_right;
 
@@ -285,8 +285,8 @@ SWPoST::train(FILE *ftxt) {
 
   //td-setSWPoSTProbabilities(N, M, (double ***)para_matrix_new);
   for (i = 0; i < M; ++i) {
-          for (j = 0; j < M; ++j) {
-                  for (k = 0; k < N; ++k) {
+    for (j = 0; j < M; ++j) {
+      for (k = 0; k < N; ++k) {
         td->getC()[i][j][k] = td->getC()[i][j][k] * para_matrix_new[i][j][k];
       }
     }
@@ -310,7 +310,7 @@ SWPoST::print_para_matrix() {
 
 
 void 
-SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
+SWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   int s_left, s_right;
 
   set <TTag> tags_left, tags, tags_right;
@@ -338,63 +338,63 @@ SWPoST::taggerSWPoST(FILE *in, FILE *out, bool show_all_good_first) {
   while (word_right) {
 
     tags_left = word_left->get_tags();
-  if (tags_left.size() == 0) {
-    tags_left = td->getOpenClass();
-  }
-  tags = word->get_tags();
-  if (tags.size() == 0) {
-    tags = td->getOpenClass();
-  }
-  tags_right = word_right->get_tags();
-  if (tags_right.size() == 0) {
-    tags_right = td->getOpenClass();
-  }
-
-  if (output.has_not(tags_left) || output.has_not(tags) || output.has_not(tags_right)) {
-    wstring errors;
-    errors = L"A new ambiguity class was found. \n";
-    errors+= L"Retraining the tagger is necessary so as to take it into account.\n";
-    errors+= L"Word '"+word->get_superficial_form()+L"'.\n";
-    errors+= L"New ambiguity class: "+word->get_string_tags()+L"\n";
-    wcerr<<L"Error: "<<errors;
-  }
-    
-  s_left =  output[tags_left];
-  s_right = output[tags_right];
-
-  double max = -1;
-  TTag tag_max = 0;
-  for (set<TTag>::iterator iter = tags.begin(); iter != tags.end(); ++iter) {
-    double n = (td->getC())[s_left][s_right][*iter];
-    if (n > max) {
-      max = n;
-      tag_max = *iter;
+    if (tags_left.size() == 0) {
+      tags_left = td->getOpenClass();
     }
-  }
-  micad = word->get_lexical_form(tag_max, (td->getTagIndex())[L"TAG_kEOF"]);
-  fputws_unlocked(micad.c_str(), out);
-  if (morpho_stream.getEndOfFile()) {
-    if (null_flush) {
-      fputwc_unlocked(L'\0', out);
+    tags = word->get_tags();
+    if (tags.size() == 0) {
+      tags = td->getOpenClass();
     }
-    fflush(out);
-    morpho_stream.setEndOfFile(false);
-  }
-
-  delete word_left;
-  word_left = word;
-  word = word_right;
-  if (morpho_stream.getEndOfFile()) {
-    if (null_flush) {
-      fputwc_unlocked(L'\0', out);
+    tags_right = word_right->get_tags();
+    if (tags_right.size() == 0) {
+      tags_right = td->getOpenClass();
     }
-    fflush(out);
-    morpho_stream.setEndOfFile(false);
-  }
-  word_right = morpho_stream.get_next_word();
-  if (word_right != NULL) {
-    word_right->set_show_sf(show_sf);
-  }
+  
+    if (output.has_not(tags_left) || output.has_not(tags) || output.has_not(tags_right)) {
+      wstring errors;
+      errors = L"A new ambiguity class was found. \n";
+      errors+= L"Retraining the tagger is necessary so as to take it into account.\n";
+      errors+= L"Word '"+word->get_superficial_form()+L"'.\n";
+      errors+= L"New ambiguity class: "+word->get_string_tags()+L"\n";
+      wcerr<<L"Error: "<<errors;
+    }
+      
+    s_left =  output[tags_left];
+    s_right = output[tags_right];
+  
+    double max = -1;
+    TTag tag_max = 0;
+    for (set<TTag>::iterator iter = tags.begin(); iter != tags.end(); ++iter) {
+      double n = (td->getC())[s_left][s_right][*iter];
+      if (n > max) {
+        max = n;
+        tag_max = *iter;
+      }
+    }
+    micad = word->get_lexical_form(tag_max, (td->getTagIndex())[L"TAG_kEOF"]);
+    fputws_unlocked(micad.c_str(), out);
+    if (morpho_stream.getEndOfFile()) {
+      if (null_flush) {
+        fputwc_unlocked(L'\0', out);
+      }
+      fflush(out);
+      morpho_stream.setEndOfFile(false);
+    }
+  
+    delete word_left;
+    word_left = word;
+    word = word_right;
+    if (morpho_stream.getEndOfFile()) {
+      if (null_flush) {
+        fputwc_unlocked(L'\0', out);
+      }
+      fflush(out);
+      morpho_stream.setEndOfFile(false);
+    }
+    word_right = morpho_stream.get_next_word();
+    if (word_right != NULL) {
+      word_right->set_show_sf(show_sf);
+    }
   }
   delete word_left;
   delete word;
