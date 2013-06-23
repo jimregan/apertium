@@ -92,6 +92,12 @@ public:
     */
    void init_probabilities(FILE *ftxt);
 
+   /** It applies the forbid and enforce rules found in tagger specification.
+    *  To do so, the joint probability of a tag sequence that contains a forbid
+    *  rule, or doesn't satisfy a enforce rule, is set to 0.
+    */
+   void apply_rules();
+
    /** Unsupervised training algorithm (Baum-Welch implementation).
     *  @param ftxt the input stream with the untagged corpus to process
     */
@@ -104,5 +110,7 @@ public:
    /** Do the tagging
     */
    void tagger(FILE *in, FILE *out, bool show_all_good_first);
+
+   void xxx_debug();
 };
 #endif

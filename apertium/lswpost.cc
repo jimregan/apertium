@@ -151,14 +151,117 @@ LSWPoST::init_probabilities(FILE *ftxt) {
 
   //td->setLSWPoSTProbabilities(N, M, para_matrix);
   for (i = 0; i < N; ++i) {
-          for (j = 0; j < N; ++j) {
-                  for (k = 0; k < N; ++k) {
+    for (j = 0; j < N; ++j) {
+      for (k = 0; k < N; ++k) {
         td->getD()[i][j][k] = para_matrix[i][j][k];
       }
     }
   }
 
+  //xxx_debug();
+
   wcerr << L"\n";
+}
+
+void
+LSWPoST::xxx_debug() {
+  for (int i = 0; i < td->getN(); ++i) {
+    for (int j = 0; j < td->getN(); ++j) {
+      for (int k = 0; k < td->getN(); ++k) {
+         if ( td->getD()[i][j][k] > ZERO) {
+          wstring wsi, wsj, wsk;
+          for (map<wstring, TTag>::iterator iter = td->getTagIndex().begin();
+              iter != td->getTagIndex().end(); ++iter) {
+            if (iter->second == i) {
+              wsi = iter->first;
+            }
+            if (iter->second == j) {
+              wsj = iter->first;
+            }
+            if (iter->second == k) {
+              wsk = iter->first;
+            }
+          }
+
+          wcerr << L"xxx: td->getD()[i][j][k] = "
+                << i << "," << k << "," << j
+                << " = " << wsi << "," << wsk << "," << wsj
+                << " = " << td->getD()[i][j][k] << endl;
+        }
+
+      }
+    }
+  }
+}
+
+
+void
+LSWPoST::apply_rules() {
+  vector<TForbidRule> &forbid_rules = td->getForbidRules();
+  vector<TEnforceAfterRule> &enforce_rules = td->getEnforceRules();
+  int N = td->getN();
+
+  /** Forbid Rules
+   *  for any sequence that contains a forbid rule,
+   *  the prob is set to ZERO.
+   */
+  for (size_t r = 0; r < forbid_rules.size(); ++r) {
+    TTag tagi = forbid_rules[r].tagi;
+    TTag tagj = forbid_rules[r].tagj;
+    for (int n = 0; n < N; ++n) {
+/*
+      if (td->getD()[tagi][n][tagj] > ZERO) {
+        wcerr << "xxx      td->getD()[tagi][n][tagj] = " << td->getD()[tagi][n][tagj]
+              << " = " << tagi << "," << tagj << endl;
+      }
+      if (td->getD()[n][tagj][tagi] > ZERO) {
+        wcerr << "xxx      td->getD()[n][tagj][tagi]2 = " << td->getD()[n][tagj][tagi]
+              << " = " << tagi << "," << tagj << endl;
+      }
+*/
+      //         left right mid
+      td->getD()[tagi][n][tagj] = 0;
+      td->getD()[n][tagj][tagi] = 0;
+    }
+  }
+
+
+  /** Enforce Rules
+   *  for any sequence that doesn't satisfy a enforce rule,
+   *  the prob is set to ZERO.
+   */
+  for (size_t r = 0; r < enforce_rules.size(); ++r) {
+    TTag tagi = enforce_rules[r].tagi;
+    vector<TTag> tagsj = enforce_rules[r].tagsj;
+    for (int n = 0; n < N; ++n) {
+      bool found = false;
+      for (size_t j = 0; j < tagsj.size(); ++j) {
+        if (n == tagsj[j]) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        for (int n_other = 0; n_other < N; ++n_other) {
+/*
+          if (td->getD()[tagi][n_other][n] > ZERO) {
+            wcerr << "xxx      td->getD()[tagi][n_other][n] = " << td->getD()[tagi][n_other][n]
+              << " = " << tagi << "," << n << endl;
+          }
+          if (td->getD()[n_other][n][tagi] > ZERO) {
+            wcerr << "xxx      td->getD()[n_other][n][tagi] = " << td->getD()[n_other][n][tagi]
+              << " = " << tagi << "," << n << endl;
+          }
+*/
+          //         left right    mid
+          td->getD()[tagi][n_other][n] = 0;
+          td->getD()[n_other][n][tagi] = 0;
+        }
+      }
+    }
+  }
+
+  //xxx_debug();
 }
 
 void
@@ -297,6 +400,7 @@ LSWPoST::train(FILE *ftxt) {
     }
   }
 
+  xxx_debug();
   wcerr << L"\n";
 }
 
@@ -316,7 +420,7 @@ LSWPoST::print_para_matrix() {
 
 void 
 LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
-
+wcerr << L"xxx : tagger " << endl;
   set <TTag> tags_left, tags, tags_right;
   
   MorphoStream morpho_stream(in, debug, td);
@@ -340,7 +444,12 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   wstring micad;
 
   while (word_right) {
-
+wcerr << L"\nxxx : word_left = ";
+word_left -> print();
+wcerr << L"xxx : word = ";
+word -> print();
+wcerr << L"xxx : word_right = ";
+word_right -> print();
     tags_left = word_left->get_tags();
     if (tags_left.size() == 0) {
       tags_left = td->getOpenClass();
@@ -353,16 +462,17 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
     if (tags_right.size() == 0) {
       tags_right = td->getOpenClass();
     }
-  
     if (output.has_not(tags_left) || output.has_not(tags) || output.has_not(tags_right)) {
+wcerr << "xxx :" << output.has_not(tags_left) << "," << output.has_not(tags) << "," << output.has_not(tags_right) << endl;
       wstring errors;
       errors = L"A new ambiguity class was found. \n";
       errors+= L"Retraining the tagger is necessary so as to take it into account.\n";
-      errors+= L"Word '"+word->get_superficial_form()+L"'.\n";
-      errors+= L"New ambiguity class: "+word->get_string_tags()+L"\n";
+      errors+= L"Word '"+word_right->get_superficial_form()+L"'.\n";
+      errors+= L"New ambiguity class: "+word_right->get_string_tags()+L"\n";
       wcerr<<L"Error: "<<errors;
     }
 
+wcerr << L"xxx : before collecting." << endl;
     double max = -1;
     TTag tag_max = 0;
     set<TTag>::iterator iter, iter_left, iter_right;
@@ -378,6 +488,8 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
         tag_max = *iter;
       }
     }
+
+wcerr << L"xxx : after  collecting." << endl;
 
     micad = word->get_lexical_form(tag_max, (td->getTagIndex())[L"TAG_kEOF"]);
     fputws_unlocked(micad.c_str(), out);

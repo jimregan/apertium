@@ -634,17 +634,24 @@ Tagger::trainLSW() {
     filerror(filenames[1]);
   }
 
+  wcerr << L"Applying forbid and enforce rules...\n";
+  lswpost.apply_rules();
+
   wcerr << L"Training (Light Sliding-Window, Unsupervised)...\n";
   for(int i=0; i != nit; i++) {
     fseek(fcrp, 0, SEEK_SET);
     lswpost.train(fcrp);
     wcout << L"iteration " << (i + 1) << " done." << endl;
   }
+  
+//  wcerr << L"Applying forbid and enforce rules...\n";
+//  lswpost.apply_rules();
 
   fclose(fdic);
   fclose(fcrp);
   treader.writeLSWPoST(filenames[3]);
 }
+
 void
 Tagger::trainHMMSupervised() {
   TSXReader treader;
