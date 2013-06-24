@@ -158,8 +158,6 @@ LSWPoST::init_probabilities(FILE *ftxt) {
     }
   }
 
-  //xxx_debug();
-
   wcerr << L"\n";
 }
 
@@ -209,19 +207,9 @@ LSWPoST::apply_rules() {
     TTag tagi = forbid_rules[r].tagi;
     TTag tagj = forbid_rules[r].tagj;
     for (int n = 0; n < N; ++n) {
-/*
-      if (td->getD()[tagi][n][tagj] > ZERO) {
-        wcerr << "xxx      td->getD()[tagi][n][tagj] = " << td->getD()[tagi][n][tagj]
-              << " = " << tagi << "," << tagj << endl;
-      }
-      if (td->getD()[n][tagj][tagi] > ZERO) {
-        wcerr << "xxx      td->getD()[n][tagj][tagi]2 = " << td->getD()[n][tagj][tagi]
-              << " = " << tagi << "," << tagj << endl;
-      }
-*/
       //         left right mid
-      td->getD()[tagi][n][tagj] = 0;
-      td->getD()[n][tagj][tagi] = 0;
+      td->getD()[tagi][n][tagj] = ZERO;
+      td->getD()[n][tagj][tagi] = ZERO;
     }
   }
 
@@ -243,19 +231,9 @@ LSWPoST::apply_rules() {
       }
       if (!found) {
         for (int n_other = 0; n_other < N; ++n_other) {
-/*
-          if (td->getD()[tagi][n_other][n] > ZERO) {
-            wcerr << "xxx      td->getD()[tagi][n_other][n] = " << td->getD()[tagi][n_other][n]
-              << " = " << tagi << "," << n << endl;
-          }
-          if (td->getD()[n_other][n][tagi] > ZERO) {
-            wcerr << "xxx      td->getD()[n_other][n][tagi] = " << td->getD()[n_other][n][tagi]
-              << " = " << tagi << "," << n << endl;
-          }
-*/
           //         left right    mid
-          td->getD()[tagi][n_other][n] = 0;
-          td->getD()[n_other][n][tagi] = 0;
+          td->getD()[tagi][n_other][n] = ZERO;
+          td->getD()[n_other][n][tagi] = ZERO;
         }
       }
     }
@@ -400,7 +378,6 @@ LSWPoST::train(FILE *ftxt) {
     }
   }
 
-  xxx_debug();
   wcerr << L"\n";
 }
 
@@ -417,12 +394,10 @@ LSWPoST::print_para_matrix() {
   }
 }
 
-
 void 
 LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
-wcerr << L"xxx : tagger " << endl;
   set <TTag> tags_left, tags, tags_right;
-  
+
   MorphoStream morpho_stream(in, debug, td);
   morpho_stream.setNullFlush(null_flush);                      
   
@@ -444,12 +419,6 @@ wcerr << L"xxx : tagger " << endl;
   wstring micad;
 
   while (word_right) {
-wcerr << L"\nxxx : word_left = ";
-word_left -> print();
-wcerr << L"xxx : word = ";
-word -> print();
-wcerr << L"xxx : word_right = ";
-word_right -> print();
     tags_left = word_left->get_tags();
     if (tags_left.size() == 0) {
       tags_left = td->getOpenClass();
@@ -462,17 +431,18 @@ word_right -> print();
     if (tags_right.size() == 0) {
       tags_right = td->getOpenClass();
     }
-    if (output.has_not(tags_left) || output.has_not(tags) || output.has_not(tags_right)) {
-wcerr << "xxx :" << output.has_not(tags_left) << "," << output.has_not(tags) << "," << output.has_not(tags_right) << endl;
-      wstring errors;
-      errors = L"A new ambiguity class was found. \n";
-      errors+= L"Retraining the tagger is necessary so as to take it into account.\n";
-      errors+= L"Word '"+word_right->get_superficial_form()+L"'.\n";
-      errors+= L"New ambiguity class: "+word_right->get_string_tags()+L"\n";
-      wcerr<<L"Error: "<<errors;
+    if (output.has_not(tags_right)) {
+      if (debug) {
+        wstring errors;
+        errors = L"A new ambiguity class was found. \n";
+        errors+= L"Retraining the tagger is necessary so as to take it into account.\n";
+        errors+= L"Word '"+word_right->get_superficial_form()+L"'.\n";
+        errors+= L"New ambiguity class: "+word_right->get_string_tags()+L"\n";
+        fatal_error(errors);
+      }
+      tags_right = find_similar_ambiguity_class(tags_right);
     }
 
-wcerr << L"xxx : before collecting." << endl;
     double max = -1;
     TTag tag_max = 0;
     set<TTag>::iterator iter, iter_left, iter_right;
@@ -488,8 +458,6 @@ wcerr << L"xxx : before collecting." << endl;
         tag_max = *iter;
       }
     }
-
-wcerr << L"xxx : after  collecting." << endl;
 
     micad = word->get_lexical_form(tag_max, (td->getTagIndex())[L"TAG_kEOF"]);
     fputws_unlocked(micad.c_str(), out);
@@ -519,4 +487,30 @@ wcerr << L"xxx : after  collecting." << endl;
   delete word_left;
   delete word;
 }
+
+set<TTag>                                                                                     
+LSWPoST::find_similar_ambiguity_class(set<TTag> c) {
+  int size_ret = -1;                                                                          
+  set<TTag> ret=td->getOpenClass(); // return open-class as default, if no better is found.
+  bool skip_class;                                                                           
+  Collection &output = td->getOutput();                                                       
+                                                                                              
+  for(int k=0; k<td->getM(); k++) {                                                           
+    if ((((int)output[k].size())>((int)size_ret)) && (((int)output[k].size())<((int)c.size()))) {    
+      skip_class=false;                                                                      
+      // Test if output[k] is a subset of class                                               
+      for(set<TTag>::const_iterator it=output[k].begin(); it!=output[k].end(); it++) {        
+        if (c.find(*it)==c.end()) { 
+           skip_class=true; //output[k] is not a subset of class                             
+           break;
+        }  
+      } 
+      if (!skip_class) {                                                                     
+        size_ret = output[k].size();                                                          
+             ret = output[k];
+      }      
+    } 
+  } 
+  return ret;                                                                                 
+} 
 

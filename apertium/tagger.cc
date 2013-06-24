@@ -467,7 +467,6 @@ Tagger::taggerSW(bool mode_first) {
   }
 }
 
-
 void
 Tagger::taggerLSW(bool mode_first) {
   FILE *ftdata = fopen(filenames[0].c_str(), "rb");
@@ -644,9 +643,6 @@ Tagger::trainLSW() {
     wcout << L"iteration " << (i + 1) << " done." << endl;
   }
   
-//  wcerr << L"Applying forbid and enforce rules...\n";
-//  lswpost.apply_rules();
-
   fclose(fdic);
   fclose(fcrp);
   treader.writeLSWPoST(filenames[3]);
