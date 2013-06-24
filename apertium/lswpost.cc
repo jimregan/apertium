@@ -158,6 +158,7 @@ LSWPoST::init_probabilities(FILE *ftxt) {
     }
   }
 
+  //xxx_debug();
   wcerr << L"\n";
 }
 
@@ -166,27 +167,11 @@ LSWPoST::xxx_debug() {
   for (int i = 0; i < td->getN(); ++i) {
     for (int j = 0; j < td->getN(); ++j) {
       for (int k = 0; k < td->getN(); ++k) {
-         if ( td->getD()[i][j][k] > ZERO) {
-          wstring wsi, wsj, wsk;
-          for (map<wstring, TTag>::iterator iter = td->getTagIndex().begin();
-              iter != td->getTagIndex().end(); ++iter) {
-            if (iter->second == i) {
-              wsi = iter->first;
-            }
-            if (iter->second == j) {
-              wsj = iter->first;
-            }
-            if (iter->second == k) {
-              wsk = iter->first;
-            }
-          }
 
-          wcerr << L"xxx: td->getD()[i][j][k] = "
-                << i << "," << k << "," << j
-                << " = " << wsi << "," << wsk << "," << wsj
-                << " = " << td->getD()[i][j][k] << endl;
+        if (isnan(td->getD()[i][j][k])) {
+          wcerr << L"xxx: td->getD()[i][j][k] = " << td->getD()[i][j][k] << endl;
+          exit(-1);
         }
-
       }
     }
   }
@@ -195,6 +180,7 @@ LSWPoST::xxx_debug() {
 
 void
 LSWPoST::apply_rules() {
+
   vector<TForbidRule> &forbid_rules = td->getForbidRules();
   vector<TEnforceAfterRule> &enforce_rules = td->getEnforceRules();
   int N = td->getN();
@@ -208,8 +194,8 @@ LSWPoST::apply_rules() {
     TTag tagj = forbid_rules[r].tagj;
     for (int n = 0; n < N; ++n) {
       //         left right mid
-      td->getD()[tagi][n][tagj] = ZERO;
-      td->getD()[n][tagj][tagi] = ZERO;
+      td->getD()[tagi][n][tagj] = 0;
+      td->getD()[n][tagj][tagi] = 0;
     }
   }
 
@@ -232,8 +218,8 @@ LSWPoST::apply_rules() {
       if (!found) {
         for (int n_other = 0; n_other < N; ++n_other) {
           //         left right    mid
-          td->getD()[tagi][n_other][n] = ZERO;
-          td->getD()[n_other][n][tagi] = ZERO;
+          td->getD()[tagi][n_other][n] = 0;
+          td->getD()[n_other][n][tagi] = 0;
         }
       }
     }
@@ -356,7 +342,9 @@ LSWPoST::train(FILE *ftxt) {
     for (iter = tags.begin(); iter != tags.end(); ++iter) {
       for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
-          para_matrix_new[*iter_left][*iter_right][*iter] += 1.0 / normalization;
+          if (normalization > ZERO) {
+            para_matrix_new[*iter_left][*iter_right][*iter] += 1.0 / normalization;
+          }
         }
       }
     }
@@ -378,6 +366,7 @@ LSWPoST::train(FILE *ftxt) {
     }
   }
 
+  //xxx_debug();
   wcerr << L"\n";
 }
 

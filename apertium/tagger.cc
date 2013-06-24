@@ -496,7 +496,7 @@ Tagger::taggerLSW(bool mode_first) {
     if(filenames.size() == 2) {
       lswpost.tagger(finput, stdout, mode_first);
     }
-    else  {
+    else {
       FILE *foutput = fopen(filenames[2].c_str(), "w");
       if (!foutput) {
         filerror(filenames[2]);
@@ -642,7 +642,7 @@ Tagger::trainLSW() {
     lswpost.train(fcrp);
     wcout << L"iteration " << (i + 1) << " done." << endl;
   }
-  
+
   fclose(fdic);
   fclose(fcrp);
   treader.writeLSWPoST(filenames[3]);
