@@ -111,8 +111,6 @@ public:
     */
    void tagger(FILE *in, FILE *out, bool show_all_good_first);
 
-   void xxx_debug();
-
    /** This method returns a known ambiguity class that is a subset of 
     *  the one received as a parameter. This is useful when a new
     *  ambiguity class is found because of changes in the morphological

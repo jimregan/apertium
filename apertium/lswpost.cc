@@ -83,7 +83,7 @@ void
 LSWPoST::init_probabilities(FILE *ftxt) {
 
   int N = td->getN();
-  int i, j, k, nw = 0;
+  int nw = 0;
 
   vector<vector<vector<double> > > para_matrix(N, vector<vector<double> >(N, vector<double>(N, 0)));
 
@@ -105,24 +105,24 @@ LSWPoST::init_probabilities(FILE *ftxt) {
 
   //We count each element of the para matrix
   while (word_right != NULL) {
-    if (++nw % 10000 == 0)
+    if (++nw % 10000 == 0) {
       wcerr << L'.' << flush;
+    }
 
     tags_left = word_left->get_tags();
     if (tags_left.size() == 0) { //This is an unknown word
       tags_left = td->getOpenClass();
     }
     tags = word->get_tags();
-    if (tags.size() == 0) { //This is an unknown word
+    if (tags.size() == 0) {
       tags = td->getOpenClass();
     }
     tags_right = word_right->get_tags();
-    if (tags_right.size() == 0) { //This is an unknown word
+    if (tags_right.size() == 0) {
       tags_right = td->getOpenClass();
     }
 
-    if (output.has_not(tags_left) || output.has_not(tags)
-        || output.has_not(tags_right)) {
+    if (output.has_not(tags_left) || output.has_not(tags) || output.has_not(tags_right)) {
       wstring errors;
       errors = L"A new ambiguity class was found. I cannot continue.\n";
       errors += L"Word '" + word->get_superficial_form() + L"' not found in the dictionary.\n";
@@ -135,8 +135,8 @@ LSWPoST::init_probabilities(FILE *ftxt) {
     for (iter = tags.begin(); iter != tags.end(); ++iter) {
       for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
-          para_matrix[*iter_left][*iter_right][*iter] +=
-              1.0 / (tags.size() * tags_left.size() * tags_right.size());
+          para_matrix[*iter_left][*iter][*iter_right] +=
+              1.0 / (tags_left.size() * tags.size() * tags_right.size());
         }
       }
     }
@@ -150,33 +150,16 @@ LSWPoST::init_probabilities(FILE *ftxt) {
   delete word;
 
   //td->setLSWPoSTProbabilities(N, M, para_matrix);
-  for (i = 0; i < N; ++i) {
-    for (j = 0; j < N; ++j) {
-      for (k = 0; k < N; ++k) {
+  for (int i = 0; i < N; ++i) {
+    for (int j = 0; j < N; ++j) {
+      for (int k = 0; k < N; ++k) {
         td->getD()[i][j][k] = para_matrix[i][j][k];
       }
     }
   }
 
-  //xxx_debug();
   wcerr << L"\n";
 }
-
-void
-LSWPoST::xxx_debug() {
-  for (int i = 0; i < td->getN(); ++i) {
-    for (int j = 0; j < td->getN(); ++j) {
-      for (int k = 0; k < td->getN(); ++k) {
-
-        if (isnan(td->getD()[i][j][k])) {
-          wcerr << L"xxx: td->getD()[i][j][k] = " << td->getD()[i][j][k] << endl;
-          exit(-1);
-        }
-      }
-    }
-  }
-}
-
 
 void
 LSWPoST::apply_rules() {
@@ -192,10 +175,10 @@ LSWPoST::apply_rules() {
   for (size_t r = 0; r < forbid_rules.size(); ++r) {
     TTag tagi = forbid_rules[r].tagi;
     TTag tagj = forbid_rules[r].tagj;
-    for (int n = 0; n < N; ++n) {
-      //         left right mid
-      td->getD()[tagi][n][tagj] = 0;
-      td->getD()[n][tagj][tagi] = 0;
+    for (int k = 0; k < N; ++k) {
+      //         left mid right
+      td->getD()[tagi][tagj][k] = 0;
+      td->getD()[k][tagi][tagj] = 0;
     }
   }
 
@@ -207,32 +190,30 @@ LSWPoST::apply_rules() {
   for (size_t r = 0; r < enforce_rules.size(); ++r) {
     TTag tagi = enforce_rules[r].tagi;
     vector<TTag> tagsj = enforce_rules[r].tagsj;
-    for (int n = 0; n < N; ++n) {
+    for (TTag tagj = 0; tagj < N; ++tagj) {
       bool found = false;
       for (size_t j = 0; j < tagsj.size(); ++j) {
-        if (n == tagsj[j]) {
+        if (tagj == tagsj[j]) {
           found = true;
           break;
         }
       }
       if (!found) {
-        for (int n_other = 0; n_other < N; ++n_other) {
-          //         left right    mid
-          td->getD()[tagi][n_other][n] = 0;
-          td->getD()[n_other][n][tagi] = 0;
+        for (int k = 0; k < N; ++k) {
+          //         left mid right
+          td->getD()[tagi][tagj][k] = 0;
+          td->getD()[k][tagi][tagj] = 0;
         }
       }
-    }
-  }
-
-  //xxx_debug();
+    } // for tagj
+  } // for r
 }
 
 void
 LSWPoST::read_dictionary(FILE *fdic) {
   int i, k, nw = 0;
   TaggerWord *word = NULL;
-  set < TTag > tags;
+  set<TTag> tags;
   Collection &output = td->getOutput();
 
   MorphoStream morpho_stream(fdic, true, td);
@@ -277,7 +258,7 @@ LSWPoST::read_dictionary(FILE *fdic) {
 void
 LSWPoST::train(FILE *ftxt) {
   int N = td->getN();
-  int i, j, k, nw = 0;
+  int nw = 0;
 
   vector<vector<vector<double> > > para_matrix_new(N, vector<vector<double> >(N, vector<double>(N, 0)));
 
@@ -301,8 +282,9 @@ LSWPoST::train(FILE *ftxt) {
 
     //wcerr<<L"Enter para continuar\n";
     //getchar();
-    if (++nw % 10000 == 0)
+    if (++nw % 10000 == 0) {
       wcerr << L'.' << flush;
+    }
 
     tags_left = word_left->get_tags();
     if (tags_left.size() == 0) { //This is an unknown word
@@ -317,8 +299,7 @@ LSWPoST::train(FILE *ftxt) {
       tags_right = td->getOpenClass();
     }
 
-    if (output.has_not(tags_left) || output.has_not(tags)
-        || output.has_not(tags_right)) {
+    if (output.has_not(tags_left) || output.has_not(tags) || output.has_not(tags_right)) {
       wstring errors;
       errors = L"A new ambiguity class was found. I cannot continue.\n";
       errors += L"Word '" + word->get_superficial_form() + L"' not found in the dictionary.\n";
@@ -334,7 +315,7 @@ LSWPoST::train(FILE *ftxt) {
     for (iter = tags.begin(); iter != tags.end(); ++iter) {
       for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
-          normalization += td->getD()[*iter_left][*iter_right][*iter];
+          normalization += td->getD()[*iter_left][*iter][*iter_right];
         }
       }
     }
@@ -343,7 +324,7 @@ LSWPoST::train(FILE *ftxt) {
       for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
           if (normalization > ZERO) {
-            para_matrix_new[*iter_left][*iter_right][*iter] += 1.0 / normalization;
+            para_matrix_new[*iter_left][*iter][*iter_right] += 1.0 / normalization;
           }
         }
       }
@@ -358,15 +339,14 @@ LSWPoST::train(FILE *ftxt) {
   delete word;
 
   //td-setLSWPoSTProbabilities(N, M, (double ***)para_matrix_new);
-  for (i = 0; i < N; ++i) {
-    for (j = 0; j < N; ++j) {
-      for (k = 0; k < N; ++k) {
+  for (int i = 0; i < N; ++i) {
+    for (int j = 0; j < N; ++j) {
+      for (int k = 0; k < N; ++k) {
         td->getD()[i][j][k] = td->getD()[i][j][k] * para_matrix_new[i][j][k];
       }
     }
   }
 
-  //xxx_debug();
   wcerr << L"\n";
 }
 
@@ -385,7 +365,7 @@ LSWPoST::print_para_matrix() {
 
 void 
 LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
-  set <TTag> tags_left, tags, tags_right;
+  set<TTag> tags_left, tags, tags_right;
 
   MorphoStream morpho_stream(in, debug, td);
   morpho_stream.setNullFlush(null_flush);                      
@@ -397,9 +377,9 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   word_left->set_show_sf(show_sf);
   TaggerWord *word = morpho_stream.get_next_word(); // word
   if (morpho_stream.getEndOfFile()) {
-  delete word_left;
-  delete word;
-  return;
+    delete word_left;
+    delete word;
+    return;
   }
   word->set_show_sf(show_sf);
   TaggerWord *word_right = morpho_stream.get_next_word(); // word_right
@@ -433,13 +413,13 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
     }
 
     double max = -1;
-    TTag tag_max = 0;
+    TTag tag_max = *tags.begin();
     set<TTag>::iterator iter, iter_left, iter_right;
     for (iter = tags.begin(); iter != tags.end(); ++iter) {
       double n = 0;
       for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
-          n += td->getD()[*iter_left][*iter_right][*iter];
+          n += td->getD()[*iter_left][*iter][*iter_right];
         }
       }
       if (n > max) {
