@@ -308,7 +308,6 @@ LSWPoST::train(FILE *ftxt) {
       fatal_error(errors);
     }
 
-
     double normalization = 0;
     set<TTag>::iterator iter, iter_left, iter_right;
 
@@ -441,13 +440,6 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
     delete word_left;
     word_left = word;
     word = word_right;
-    if (morpho_stream.getEndOfFile()) {
-      if (null_flush) {
-        fputwc_unlocked(L'\0', out);
-      }
-      fflush(out);
-      morpho_stream.setEndOfFile(false);
-    }
     word_right = morpho_stream.get_next_word();
     if (word_right != NULL) {
       word_right->set_show_sf(show_sf);
