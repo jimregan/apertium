@@ -38,7 +38,7 @@
 #include <apertium/collection.h>
 #include <apertium/constant_manager.h>
 #include <apertium/morpho_stream.h>
-#include <apertium/tagger_data.h>
+#include <apertium/tagger_data_lsw.h>
 #include <apertium/tagger_utils.h>
 #include <apertium/tagger_word.h>
 
@@ -50,7 +50,7 @@
  */
 class LSWPoST {
 private:
-  TaggerData *td;
+  TaggerDataLSW * tdlsw;
   TTag eos; // end-of-sentence tag
   bool debug; //If true, print error messages when tagging input text
   bool show_sf; //If true, print superficial forms when tagging input text
@@ -59,7 +59,7 @@ private:
 public:
    /** Constructor
     */
-   LSWPoST(TaggerData *t);
+   LSWPoST(TaggerDataLSW *t);
 
    /** Destructor
     */

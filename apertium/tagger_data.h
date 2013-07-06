@@ -34,7 +34,7 @@ using namespace std;
 
 class TaggerData
 {
-private:
+protected:
   set<TTag> open_class;
   vector<TForbidRule> forbid_rules;
   map<wstring, TTag, Ltstr> tag_index;
@@ -43,18 +43,11 @@ private:
   vector<wstring> prefer_rules;
   ConstantManager constants;
   Collection output;
-  int N;
-  int M;
-  double **a;
-  double **b;
-  double ***c;
-  double ***d;
   PatternList plist;
 
   vector<wstring> discard;
   
   void copy(TaggerData const &o);
-  void destroy();
 public:
   TaggerData();
   virtual ~TaggerData();
@@ -88,31 +81,9 @@ public:
   virtual Collection & getOutput();
   void setOutput(Collection const &c);
  
-  void setProbabilities(int const myN, int const myM, 
-                        double **myA = NULL, double **myB = NULL);
-
-  void setSWPoSTProbabilities(int const myN, int const myM,
-		  	      double ***myC = NULL);
-
-  void setLSWPoSTProbabilities(int const myN, double ***myD = NULL);
-
-  virtual double ** getA();
-  virtual double ** getB();
-  virtual double *** getC();
-  virtual double *** getD();
-  virtual int getN();
-  virtual int getM();
-  
   void setPatternList(PatternList const &pl);
   void addDiscard(wstring const &tags);
   PatternList & getPatternList();
-  
-  void read(FILE *in);
-  void readSWPoST(FILE *in);
-  void readLSWPoST(FILE *in);
-  void write(FILE *out);
-  void writeSWPoST(FILE *out);
-  void writeLSWPoST(FILE *out);
 };
 
 #endif

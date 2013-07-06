@@ -24,7 +24,6 @@
 #include <apertium/tagger.h>
 
 #include <apertium/hmm.h>
-#include <apertium/swpost.h>
 #include <apertium/lswpost.h>
 #include <apertium/tagger_utils.h>
 #include <apertium/tsx_reader.h>
@@ -328,7 +327,6 @@ Tagger::main(int argc, char *argv[]) {
       break;
 
     case TRAIN_SW_UNSUPERVISED_MODE:
-      //trainSW();
       trainLSW();
       break;
     
@@ -337,7 +335,6 @@ Tagger::main(int argc, char *argv[]) {
       break;
 
     case TRAIN_SW_SUPERVISED_MODE:
-      //trainSWSupervised();
       trainLSWSupervised();
       break;
 
@@ -346,7 +343,6 @@ Tagger::main(int argc, char *argv[]) {
       break;
       
     case RETRAIN_SW_UNSUPERVISED_MODE:
-      //retrainSW();
       retrainLSW();
       break;
       
@@ -355,7 +351,6 @@ Tagger::main(int argc, char *argv[]) {
       break;
 
     case TAGGER_SW_MODE:
-      //taggerSW();
       taggerLSW();
       break;
 
@@ -364,7 +359,6 @@ Tagger::main(int argc, char *argv[]) {
       break;
 
     case TAGGER_SW_FIRST_MODE:
-      //taggerSW(true);
       taggerLSW(true);
       break;
 
@@ -382,11 +376,11 @@ Tagger::taggerHMM(bool mode_first) {
     filerror(filenames[0]);
   }
 
-  TaggerData td;
-  td.read(ftdata);
+  TaggerDataHMM tdhmm;
+  tdhmm.read(ftdata);
   fclose(ftdata);
   
-  HMM hmm(&td);
+  HMM hmm(&tdhmm);
 
   hmm.set_show_sf(showSF);
   hmm.setNullFlush(null_flush);
@@ -421,52 +415,6 @@ Tagger::taggerHMM(bool mode_first) {
   }
 }
 
-
-void
-Tagger::taggerSW(bool mode_first) {
-  FILE *ftdata = fopen(filenames[0].c_str(), "rb");
-  if (!ftdata) {
-    filerror(filenames[0]);
-  }
-
-  TaggerData td;
-  td.readSWPoST(ftdata);
-  fclose(ftdata);
-  
-  SWPoST swpost(&td);
-  swpost.set_show_sf(showSF);
-  swpost.setNullFlush(null_flush);
-
-  if(filenames.size() == 1) {
-    swpost.tagger(stdin, stdout, mode_first);
-  }
-  else {
-    FILE *finput = fopen(filenames[1].c_str(), "r");
-    if (!finput) {
-      filerror(filenames[1]);
-    }
-#ifdef _MSC_VER
-	_setmode(_fileno(finput), _O_U8TEXT);
-#endif
-    if(filenames.size() == 2) {
-      swpost.tagger(finput, stdout, mode_first);
-    }
-    else  {
-      FILE *foutput = fopen(filenames[2].c_str(), "w");
-      if (!foutput) {
-        filerror(filenames[2]);
-      }
-#ifdef _MSC_VER
-	  _setmode(_fileno(foutput), _O_U8TEXT);
-#endif
-
-      swpost.tagger(finput, foutput, mode_first);
-      fclose(foutput);
-    }
-    fclose(finput);
-  }
-}
-
 void
 Tagger::taggerLSW(bool mode_first) {
   FILE *ftdata = fopen(filenames[0].c_str(), "rb");
@@ -474,11 +422,11 @@ Tagger::taggerLSW(bool mode_first) {
     filerror(filenames[0]);
   }
 
-  TaggerData td;
-  td.readLSWPoST(ftdata);
+  TaggerDataLSW tdlsw;
+  tdlsw.read(ftdata);
   fclose(ftdata);
   
-  LSWPoST lswpost(&td);
+  LSWPoST lswpost(&tdlsw);
   lswpost.set_show_sf(showSF);
   lswpost.setNullFlush(null_flush);
 
@@ -522,10 +470,11 @@ void
 Tagger::trainHMM() {
   TSXReader treader;
   treader.read(filenames[2]);
-  HMM hmm(&(treader.getTaggerData()));
+  TaggerDataHMM tdhmm(treader.getTaggerData());
+  HMM hmm(&tdhmm);
   hmm.set_debug(debug);
-  hmm.set_eos((treader.getTaggerData().getTagIndex())[L"TAG_SENT"]);
-  TaggerWord::setArrayTags(treader.getTaggerData().getArrayTags());
+  hmm.set_eos((tdhmm.getTagIndex())[L"TAG_SENT"]);
+  TaggerWord::setArrayTags(tdhmm.getArrayTags());
   
   wcerr << L"Calculating ambiguity classes...\n";
   FILE *fdic = fopen(filenames[0].c_str(), "r");
@@ -560,58 +509,24 @@ Tagger::trainHMM() {
 
   fclose(fdic);
   fclose(fcrp);
-  treader.write(filenames[3]);
-}
 
-void
-Tagger::trainSW() {
-  TSXReader treader;
-  treader.read(filenames[2]);
-  SWPoST swpost(&(treader.getTaggerData()));
-  swpost.set_debug(debug);
-  swpost.set_eos(treader.getTaggerData().getTagIndex()[L"TAG_SENT"]);
-  TaggerWord::setArrayTags(treader.getTaggerData().getArrayTags());
-
-  wcerr << L"Calculating ambiguity classes...\n";
-  FILE *fdic = fopen(filenames[0].c_str(), "r");
-  if(fdic) {
-    swpost.read_dictionary(fdic);
+  FILE *ftdata = fopen(filenames[3].c_str(), "wb");
+  if(!ftdata)  {
+    filerror(filenames[3]);
   }
-  else {
-    filerror(filenames[0]);
-  }
-  wcerr << L"Average initialization of Sliding-Window probabilities...\n";
-  FILE *fcrp = fopen(filenames[1].c_str(), "r");
-  if(fcrp) {
-#ifdef _MSC_VER
-    _setmode(_fileno(fcrp), _O_U8TEXT);
-#endif
-    swpost.init_probabilities(fcrp);
-  }
-  else {
-    filerror(filenames[1]);
-  }
-
-  wcerr << L"Training (Sliding-Window, Unsupervised)...\n";
-  for(int i=0; i != nit; i++) {
-    fseek(fcrp, 0, SEEK_SET);
-    swpost.train(fcrp);
-    wcout << L"iteration " << (i + 1) << " done." << endl;
-  }
-
-  fclose(fdic);
-  fclose(fcrp);
-  treader.writeSWPoST(filenames[3]);
+  tdhmm.write(ftdata);
+  fclose(ftdata);
 }
 
 void
 Tagger::trainLSW() {
   TSXReader treader;
   treader.read(filenames[2]);
-  LSWPoST lswpost(&(treader.getTaggerData()));
+  TaggerDataLSW tdlsw(treader.getTaggerData());
+  LSWPoST lswpost(&tdlsw);
   lswpost.set_debug(debug);
-  lswpost.set_eos(treader.getTaggerData().getTagIndex()[L"TAG_SENT"]);
-  TaggerWord::setArrayTags(treader.getTaggerData().getArrayTags());
+  lswpost.set_eos(tdlsw.getTagIndex()[L"TAG_SENT"]);
+  TaggerWord::setArrayTags(tdlsw.getArrayTags());
 
   wcerr << L"Calculating ambiguity classes...\n";
   FILE *fdic = fopen(filenames[0].c_str(), "r");
@@ -645,17 +560,24 @@ Tagger::trainLSW() {
 
   fclose(fdic);
   fclose(fcrp);
-  treader.writeLSWPoST(filenames[3]);
+
+  FILE *ftdata = fopen(filenames[3].c_str(), "wb");
+  if(!ftdata)  {
+    filerror(filenames[3]);
+  }
+  tdlsw.write(ftdata);
+  fclose(ftdata);
 }
 
 void
 Tagger::trainHMMSupervised() {
   TSXReader treader;
   treader.read(filenames[2]);
-  HMM hmm(&(treader.getTaggerData()));
+  TaggerDataHMM tdhmm(treader.getTaggerData());
+  HMM hmm(&tdhmm);
   hmm.set_debug(debug);
-  hmm.set_eos((treader.getTaggerData().getTagIndex())[L"TAG_SENT"]);
-  TaggerWord::setArrayTags(treader.getTaggerData().getArrayTags());
+  hmm.set_eos(tdhmm.getTagIndex()[L"TAG_SENT"]);
+  TaggerWord::setArrayTags(tdhmm.getArrayTags());
   
   wcerr << L"Calculating ambiguity classes...\n";
   FILE *fdic = fopen(filenames[0].c_str(), "r");
@@ -704,11 +626,13 @@ Tagger::trainHMMSupervised() {
 
   fclose(fdic);
   fclose(fcrp);
-  treader.write(filenames[3]);
-}
 
-void
-Tagger::trainSWSupervised() {
+  FILE *ftdata = fopen(filenames[3].c_str(), "wb");
+  if(!ftdata)  {
+    filerror(filenames[3]);
+  }
+  tdhmm.write(ftdata);
+  fclose(ftdata);
 }
 
 void
@@ -717,18 +641,18 @@ Tagger::trainLSWSupervised() {
 
 void
 Tagger::retrainHMM() {
-  TaggerData td;
+  TaggerDataHMM tdhmm;
   FILE *ftdata = fopen(filenames[1].c_str(), "rb");
   if(!ftdata) {
     filerror(filenames[1]);
   }
-  td.read(ftdata);
+  tdhmm.read(ftdata);
   fclose(ftdata);
 
-  HMM hmm(&td);
+  HMM hmm(&tdhmm);
   hmm.set_debug(debug);
-  hmm.set_eos((td.getTagIndex())[L"TAG_SENT"]);
-  TaggerWord::setArrayTags(td.getArrayTags());
+  hmm.set_eos((tdhmm.getTagIndex())[L"TAG_SENT"]);
+  TaggerWord::setArrayTags(tdhmm.getArrayTags());
 
   FILE *fcrp = fopen(filenames[0].c_str(), "r");
   if(!fcrp)  {
@@ -750,62 +674,24 @@ Tagger::retrainHMM() {
   if(!ftdata)  {
     filerror(filenames[1]);
   }
-  td.write(ftdata);
-  fclose(ftdata);
-}
-
-void
-Tagger::retrainSW() {
-  TaggerData td;
-  FILE *ftdata = fopen(filenames[1].c_str(), "rb");
-  if(!ftdata) {
-    filerror(filenames[1]);
-  }
-  td.readSWPoST(ftdata);
-  fclose(ftdata);
-
-  SWPoST swpost(&td);
-  swpost.set_debug(debug);
-  swpost.set_eos((td.getTagIndex())[L"TAG_SENT"]);
-  TaggerWord::setArrayTags(td.getArrayTags());
-
-  FILE *fcrp = fopen(filenames[0].c_str(), "r");
-  if(!fcrp)  {
-    filerror(filenames[0]);
-  }
-#ifdef _MSC_VER
-  _setmode(_fileno(fcrp), _O_U8TEXT);
-#endif 
-  wcerr << L"Training (Sliding-Window, Unsupervised)...\n";
-  for(int i=0; i != nit; i++)  {
-    fseek(fcrp, 0, SEEK_SET);
-    swpost.train(fcrp);
-    wcout << L"iteration " << (i + 1) << " done." << endl;
-  }
-  fclose(fcrp);
-
-  ftdata = fopen(filenames[1].c_str(), "wb");
-  if(!ftdata)  {
-    filerror(filenames[1]);
-  }
-  td.writeSWPoST(ftdata);
+  tdhmm.write(ftdata);
   fclose(ftdata);
 }
 
 void
 Tagger::retrainLSW() {
-  TaggerData td;
+  TaggerDataLSW tdlsw;
   FILE *ftdata = fopen(filenames[1].c_str(), "rb");
   if(!ftdata) {
     filerror(filenames[1]);
   }
-  td.readLSWPoST(ftdata);
+  tdlsw.read(ftdata);
   fclose(ftdata);
 
-  LSWPoST lswpost(&td);
+  LSWPoST lswpost(&tdlsw);
   lswpost.set_debug(debug);
-  lswpost.set_eos((td.getTagIndex())[L"TAG_SENT"]);
-  TaggerWord::setArrayTags(td.getArrayTags());
+  lswpost.set_eos((tdlsw.getTagIndex())[L"TAG_SENT"]);
+  TaggerWord::setArrayTags(tdlsw.getArrayTags());
 
   FILE *fcrp = fopen(filenames[0].c_str(), "r");
   if(!fcrp)  {
@@ -826,7 +712,7 @@ Tagger::retrainLSW() {
   if(!ftdata)  {
     filerror(filenames[1]);
   }
-  td.writeLSWPoST(ftdata);
+  tdlsw.write(ftdata);
   fclose(ftdata);
 }
 void

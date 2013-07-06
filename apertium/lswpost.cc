@@ -48,12 +48,12 @@ using namespace std;
 using namespace Apertium;
 using namespace tagger_utils;
 
-LSWPoST::LSWPoST(TaggerData *t) {
-  this->td = t;
+LSWPoST::LSWPoST(TaggerDataLSW *t) {
+  this->tdlsw = t;
   debug=false;
   show_sf=false;
   null_flush = false;
-  eos = (td->getTagIndex())[L"TAG_SENT"];  
+  eos = (tdlsw->getTagIndex())[L"TAG_SENT"];  
 }
 
 LSWPoST::~LSWPoST() {
@@ -82,19 +82,19 @@ LSWPoST::setNullFlush(bool nf) {
 void
 LSWPoST::init_probabilities(FILE *ftxt) {
 
-  int N = td->getN();
+  int N = tdlsw->getN();
   int nw = 0;
 
   vector<vector<vector<double> > > para_matrix(N, vector<vector<double> >(N, vector<double>(N, 0)));
 
-  Collection &output = td->getOutput();
+  Collection &output = tdlsw->getOutput();
 
-  MorphoStream morpho_stream(ftxt, true, td);
+  MorphoStream morpho_stream(ftxt, true, tdlsw);
   
   set<TTag> tags_left, tags, tags_right;
   
   TaggerWord *word_left = new TaggerWord(); // word_left
-  word_left->add_tag(eos, L"sent", td->getPreferRules());
+  word_left->add_tag(eos, L"sent", tdlsw->getPreferRules());
   TaggerWord *word = morpho_stream.get_next_word(); // word
   if (morpho_stream.getEndOfFile()) {
     delete word_left;
@@ -111,15 +111,15 @@ LSWPoST::init_probabilities(FILE *ftxt) {
 
     tags_left = word_left->get_tags();
     if (tags_left.size() == 0) { //This is an unknown word
-      tags_left = td->getOpenClass();
+      tags_left = tdlsw->getOpenClass();
     }
     tags = word->get_tags();
     if (tags.size() == 0) {
-      tags = td->getOpenClass();
+      tags = tdlsw->getOpenClass();
     }
     tags_right = word_right->get_tags();
     if (tags_right.size() == 0) {
-      tags_right = td->getOpenClass();
+      tags_right = tdlsw->getOpenClass();
     }
 
     if (output.has_not(tags_left) || output.has_not(tags) || output.has_not(tags_right)) {
@@ -149,11 +149,11 @@ LSWPoST::init_probabilities(FILE *ftxt) {
   delete word_left;
   delete word;
 
-  //td->setLSWPoSTProbabilities(N, M, para_matrix);
+  //tdlsw->setLSWPoSTProbabilities(N, M, para_matrix);
   for (int i = 0; i < N; ++i) {
     for (int j = 0; j < N; ++j) {
       for (int k = 0; k < N; ++k) {
-        td->getD()[i][j][k] = para_matrix[i][j][k];
+        tdlsw->getD()[i][j][k] = para_matrix[i][j][k];
       }
     }
   }
@@ -164,9 +164,9 @@ LSWPoST::init_probabilities(FILE *ftxt) {
 void
 LSWPoST::apply_rules() {
 
-  vector<TForbidRule> &forbid_rules = td->getForbidRules();
-  vector<TEnforceAfterRule> &enforce_rules = td->getEnforceRules();
-  int N = td->getN();
+  vector<TForbidRule> &forbid_rules = tdlsw->getForbidRules();
+  vector<TEnforceAfterRule> &enforce_rules = tdlsw->getEnforceRules();
+  int N = tdlsw->getN();
 
   /** Forbid Rules
    *  for any sequence that contains a forbid rule,
@@ -177,8 +177,8 @@ LSWPoST::apply_rules() {
     TTag tagj = forbid_rules[r].tagj;
     for (int k = 0; k < N; ++k) {
       //         left mid right
-      td->getD()[tagi][tagj][k] = 0;
-      td->getD()[k][tagi][tagj] = 0;
+      tdlsw->getD()[tagi][tagj][k] = 0;
+      tdlsw->getD()[k][tagi][tagj] = 0;
     }
   }
 
@@ -201,8 +201,8 @@ LSWPoST::apply_rules() {
       if (!found) {
         for (int k = 0; k < N; ++k) {
           //         left mid right
-          td->getD()[tagi][tagj][k] = 0;
-          td->getD()[k][tagi][tagj] = 0;
+          tdlsw->getD()[tagi][tagj][k] = 0;
+          tdlsw->getD()[k][tagi][tagj] = 0;
         }
       }
     } // for tagj
@@ -214,9 +214,9 @@ LSWPoST::read_dictionary(FILE *fdic) {
   int i, k, nw = 0;
   TaggerWord *word = NULL;
   set<TTag> tags;
-  Collection &output = td->getOutput();
+  Collection &output = tdlsw->getOutput();
 
-  MorphoStream morpho_stream(fdic, true, td);
+  MorphoStream morpho_stream(fdic, true, tdlsw);
 
   // In the input dictionary there must be all punctuation marks, including the end-of-sentece mark
 
@@ -239,9 +239,9 @@ LSWPoST::read_dictionary(FILE *fdic) {
   // OPEN AMBIGUITY CLASS
   // It contains all tags that are not closed.
   // Unknown words are assigned the open ambiguity class
-  k = output[td->getOpenClass()];
+  k = output[tdlsw->getOpenClass()];
 
-  int N = (td->getTagIndex()).size();
+  int N = (tdlsw->getTagIndex()).size();
 
   // Create ambiguity class holding one single tag for each tag.
   // If not created yet
@@ -252,24 +252,24 @@ LSWPoST::read_dictionary(FILE *fdic) {
   }
 
   wcerr << N << L" states\n";
-  td->setLSWPoSTProbabilities(N);
+  tdlsw->setProbabilities(N);
 }
 
 void
 LSWPoST::train(FILE *ftxt) {
-  int N = td->getN();
+  int N = tdlsw->getN();
   int nw = 0;
 
   vector<vector<vector<double> > > para_matrix_new(N, vector<vector<double> >(N, vector<double>(N, 0)));
 
   set<TTag> tags_left, tags, tags_right;
 
-  Collection &output = td->getOutput();
+  Collection &output = tdlsw->getOutput();
 
-  MorphoStream morpho_stream(ftxt, true, td);
+  MorphoStream morpho_stream(ftxt, true, tdlsw);
 
   TaggerWord *word_left = new TaggerWord(); // word_left
-  word_left->add_tag(eos, L"sent", td->getPreferRules());
+  word_left->add_tag(eos, L"sent", tdlsw->getPreferRules());
   TaggerWord *word = morpho_stream.get_next_word(); // word
   if (morpho_stream.getEndOfFile()) {
     delete word_left;
@@ -288,15 +288,15 @@ LSWPoST::train(FILE *ftxt) {
 
     tags_left = word_left->get_tags();
     if (tags_left.size() == 0) { //This is an unknown word
-      tags_left = td->getOpenClass();
+      tags_left = tdlsw->getOpenClass();
     }
     tags = word->get_tags();
     if (tags.size() == 0) { //This is an unknown word
-      tags = td->getOpenClass();
+      tags = tdlsw->getOpenClass();
     }
     tags_right = word_right->get_tags();
     if (tags_right.size() == 0) { //This is an unknown word
-      tags_right = td->getOpenClass();
+      tags_right = tdlsw->getOpenClass();
     }
 
     if (output.has_not(tags_left) || output.has_not(tags) || output.has_not(tags_right)) {
@@ -314,7 +314,7 @@ LSWPoST::train(FILE *ftxt) {
     for (iter = tags.begin(); iter != tags.end(); ++iter) {
       for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
-          normalization += td->getD()[*iter_left][*iter][*iter_right];
+          normalization += tdlsw->getD()[*iter_left][*iter][*iter_right];
         }
       }
     }
@@ -337,26 +337,24 @@ LSWPoST::train(FILE *ftxt) {
   delete word_left;
   delete word;
 
-  //td-setLSWPoSTProbabilities(N, M, (double ***)para_matrix_new);
+  //tdlsw-setLSWPoSTProbabilities(N, M, (double ***)para_matrix_new);
   for (int i = 0; i < N; ++i) {
     for (int j = 0; j < N; ++j) {
       for (int k = 0; k < N; ++k) {
-        td->getD()[i][j][k] = td->getD()[i][j][k] * para_matrix_new[i][j][k];
+        tdlsw->getD()[i][j][k] = tdlsw->getD()[i][j][k] * para_matrix_new[i][j][k];
       }
     }
   }
-
-  wcerr << L"\n";
 }
 
 void
 LSWPoST::print_para_matrix() {
   wcout << L"para matrix D\n----------------------------\n";
-  for (int i = 0; i < td->getN(); ++i) {
-    for (int j = 0; j < td->getN(); ++j) {
-      for (int k = 0; k < td->getN(); ++k) {
+  for (int i = 0; i < tdlsw->getN(); ++i) {
+    for (int j = 0; j < tdlsw->getN(); ++j) {
+      for (int k = 0; k < tdlsw->getN(); ++k) {
         wcout << L"D[" << i << L"][" << j << L"][" << k << L"] = "
-            << td->getD()[i][j][k] << "\n";
+            << tdlsw->getD()[i][j][k] << "\n";
       }
     }
   }
@@ -366,13 +364,13 @@ void
 LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   set<TTag> tags_left, tags, tags_right;
 
-  MorphoStream morpho_stream(in, debug, td);
+  MorphoStream morpho_stream(in, debug, tdlsw);
   morpho_stream.setNullFlush(null_flush);                      
   
-  Collection &output = td->getOutput();
+  Collection &output = tdlsw->getOutput();
   
   TaggerWord *word_left = new TaggerWord(); // word_left
-  word_left->add_tag(eos, L"sent", td->getPreferRules());
+  word_left->add_tag(eos, L"sent", tdlsw->getPreferRules());
   word_left->set_show_sf(show_sf);
   TaggerWord *word = morpho_stream.get_next_word(); // word
   if (morpho_stream.getEndOfFile()) {
@@ -389,15 +387,15 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   while (word_right) {
     tags_left = word_left->get_tags();
     if (tags_left.size() == 0) {
-      tags_left = td->getOpenClass();
+      tags_left = tdlsw->getOpenClass();
     }
     tags = word->get_tags();
     if (tags.size() == 0) {
-      tags = td->getOpenClass();
+      tags = tdlsw->getOpenClass();
     }
     tags_right = word_right->get_tags();
     if (tags_right.size() == 0) {
-      tags_right = td->getOpenClass();
+      tags_right = tdlsw->getOpenClass();
     }
     if (output.has_not(tags_right)) {
       if (debug) {
@@ -418,7 +416,7 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
       double n = 0;
       for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
-          n += td->getD()[*iter_left][*iter][*iter_right];
+          n += tdlsw->getD()[*iter_left][*iter][*iter_right];
         }
       }
       if (n > max) {
@@ -427,7 +425,7 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
       }
     }
 
-    micad = word->get_lexical_form(tag_max, (td->getTagIndex())[L"TAG_kEOF"]);
+    micad = word->get_lexical_form(tag_max, (tdlsw->getTagIndex())[L"TAG_kEOF"]);
     fputws_unlocked(micad.c_str(), out);
     if (morpho_stream.getEndOfFile()) {
       if (null_flush) {
@@ -452,11 +450,11 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
 set<TTag>                                                                                     
 LSWPoST::find_similar_ambiguity_class(set<TTag> c) {
   int size_ret = -1;                                                                          
-  set<TTag> ret=td->getOpenClass(); // return open-class as default, if no better is found.
+  set<TTag> ret=tdlsw->getOpenClass(); // return open-class as default, if no better is found.
   bool skip_class;                                                                           
-  Collection &output = td->getOutput();                                                       
+  Collection &output = tdlsw->getOutput();                                                       
                                                                                               
-  for(int k=0; k<td->getM(); k++) {                                                           
+  for(int k=0; k<output.size(); k++) {                                                           
     if ((((int)output[k].size())>((int)size_ret)) && (((int)output[k].size())<((int)c.size()))) {    
       skip_class=false;                                                                      
       // Test if output[k] is a subset of class                                               
