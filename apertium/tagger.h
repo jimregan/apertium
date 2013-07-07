@@ -43,13 +43,13 @@ private:
             TAGGER_HMM_MODE,
             TAGGER_HMM_EVAL_MODE,
             TAGGER_HMM_FIRST_MODE,
-            TRAIN_SW_UNSUPERVISED_MODE,
-            TRAIN_SW_SUPERVISED_MODE,
-            RETRAIN_SW_UNSUPERVISED_MODE,
-            RETRAIN_SW_SUPERVISED_MODE,
-            TAGGER_SW_MODE,
-            TAGGER_SW_EVAL_MODE,
-            TAGGER_SW_FIRST_MODE};
+            TRAIN_LSW_UNSUPERVISED_MODE,
+            TRAIN_LSW_SUPERVISED_MODE,
+            RETRAIN_LSW_UNSUPERVISED_MODE,
+            RETRAIN_LSW_SUPERVISED_MODE,
+            TAGGER_LSW_MODE,
+            TAGGER_LSW_EVAL_MODE,
+            TAGGER_LSW_FIRST_MODE};
             
   vector<string> filenames;
   int nit;

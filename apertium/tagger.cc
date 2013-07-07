@@ -99,22 +99,22 @@ Tagger::getMode(int argc, char *argv[]) {
       case 'w':
         is_sw = true;
         if (mode == TRAIN_HMM_UNSUPERVISED_MODE) {
-          mode = TRAIN_SW_UNSUPERVISED_MODE;
+          mode = TRAIN_LSW_UNSUPERVISED_MODE;
         }
         if (mode == TRAIN_HMM_SUPERVISED_MODE) {
-          mode = TRAIN_SW_SUPERVISED_MODE;
+          mode = TRAIN_LSW_SUPERVISED_MODE;
         }
         if (mode == RETRAIN_HMM_UNSUPERVISED_MODE) {
-          mode = RETRAIN_SW_UNSUPERVISED_MODE;
+          mode = RETRAIN_LSW_UNSUPERVISED_MODE;
         }
         if (mode == TAGGER_HMM_MODE) {
-          mode = TAGGER_SW_MODE;
+          mode = TAGGER_LSW_MODE;
         }
         if (mode == TAGGER_HMM_EVAL_MODE) {
-          mode = TAGGER_SW_EVAL_MODE;
+          mode = TAGGER_LSW_EVAL_MODE;
         }
         if (mode == TAGGER_HMM_FIRST_MODE) {
-          mode = TAGGER_SW_FIRST_MODE;
+          mode = TAGGER_LSW_FIRST_MODE;
         }
         break;
       case 'm':
@@ -135,7 +135,7 @@ Tagger::getMode(int argc, char *argv[]) {
         }
         if(mode==UNKNOWN_MODE) {
           if (is_sw) {
-            mode = TRAIN_SW_UNSUPERVISED_MODE;
+            mode = TRAIN_LSW_UNSUPERVISED_MODE;
           }
           else {
             mode = TRAIN_HMM_UNSUPERVISED_MODE;
@@ -158,7 +158,7 @@ Tagger::getMode(int argc, char *argv[]) {
 
         if(mode==UNKNOWN_MODE) {
           if (is_sw) {
-            mode = TRAIN_SW_SUPERVISED_MODE;
+            mode = TRAIN_LSW_SUPERVISED_MODE;
           }
           else {
             mode = TRAIN_HMM_SUPERVISED_MODE;
@@ -184,7 +184,7 @@ Tagger::getMode(int argc, char *argv[]) {
         }
         if(mode==UNKNOWN_MODE) {
           if (is_sw) {
-            mode = RETRAIN_SW_UNSUPERVISED_MODE;
+            mode = RETRAIN_LSW_UNSUPERVISED_MODE;
           }
           else {
             mode = RETRAIN_HMM_UNSUPERVISED_MODE;
@@ -199,7 +199,7 @@ Tagger::getMode(int argc, char *argv[]) {
       case 'g': 
         if(mode==UNKNOWN_MODE) {
           if (is_sw) {
-            mode = TAGGER_SW_MODE;
+            mode = TAGGER_LSW_MODE;
           }
           else {
 	    mode = TAGGER_HMM_MODE;
@@ -215,8 +215,8 @@ Tagger::getMode(int argc, char *argv[]) {
         if(mode==TAGGER_HMM_MODE) {
           mode = TAGGER_HMM_EVAL_MODE;
         }
-        else if (mode == TAGGER_SW_MODE) {
-          mode = TAGGER_SW_EVAL_MODE;
+        else if (mode == TAGGER_LSW_MODE) {
+          mode = TAGGER_LSW_EVAL_MODE;
         }
         else {
           wcerr<<L"Error: --eval optional argument should only appear after --tagger argument\n";
@@ -228,8 +228,8 @@ Tagger::getMode(int argc, char *argv[]) {
         if(mode==TAGGER_HMM_MODE) {
           mode = TAGGER_HMM_FIRST_MODE;
         }
-        else if (mode == TAGGER_SW_MODE) {
-          mode = TAGGER_SW_FIRST_MODE;
+        else if (mode == TAGGER_LSW_MODE) {
+          mode = TAGGER_LSW_FIRST_MODE;
         }
         else {
           wcerr<<L"Error: --first optional argument should only appear after --tagger argument\n";
@@ -260,22 +260,22 @@ Tagger::getMode(int argc, char *argv[]) {
   switch(argc-optind) {
     case 6:
       if(mode != TRAIN_HMM_SUPERVISED_MODE
-          && mode != TRAIN_SW_SUPERVISED_MODE) {
+          && mode != TRAIN_LSW_SUPERVISED_MODE) {
         help();
       }
       break;
     
     case 4:
       if(mode != TRAIN_HMM_UNSUPERVISED_MODE
-          && mode != TRAIN_SW_UNSUPERVISED_MODE) {
+          && mode != TRAIN_LSW_UNSUPERVISED_MODE) {
         help();
       }
       break;
     case 3:
       if (mode != TAGGER_HMM_MODE
           && mode != TAGGER_HMM_FIRST_MODE
-          && mode != TAGGER_SW_MODE
-          && mode != TAGGER_SW_FIRST_MODE) {
+          && mode != TAGGER_LSW_MODE
+          && mode != TAGGER_LSW_FIRST_MODE) {
         help();
       }
       break;
@@ -283,8 +283,8 @@ Tagger::getMode(int argc, char *argv[]) {
     case 2:
       if(mode != RETRAIN_HMM_UNSUPERVISED_MODE
           && mode != TAGGER_HMM_MODE
-          && mode != RETRAIN_SW_UNSUPERVISED_MODE
-          && mode != TAGGER_SW_MODE) {
+          && mode != RETRAIN_LSW_UNSUPERVISED_MODE
+          && mode != TAGGER_LSW_MODE) {
         help();
       }
       break;
@@ -292,8 +292,8 @@ Tagger::getMode(int argc, char *argv[]) {
     case 1:
       if (mode != TAGGER_HMM_MODE
           && mode != TAGGER_HMM_FIRST_MODE
-          && mode != TAGGER_SW_MODE
-          && mode != TAGGER_SW_FIRST_MODE)  {
+          && mode != TAGGER_LSW_MODE
+          && mode != TAGGER_LSW_FIRST_MODE)  {
         help();
       }
       break;
@@ -326,7 +326,7 @@ Tagger::main(int argc, char *argv[]) {
       trainHMM();
       break;
 
-    case TRAIN_SW_UNSUPERVISED_MODE:
+    case TRAIN_LSW_UNSUPERVISED_MODE:
       trainLSW();
       break;
     
@@ -334,7 +334,7 @@ Tagger::main(int argc, char *argv[]) {
       trainHMMSupervised();
       break;
 
-    case TRAIN_SW_SUPERVISED_MODE:
+    case TRAIN_LSW_SUPERVISED_MODE:
       trainLSWSupervised();
       break;
 
@@ -342,7 +342,7 @@ Tagger::main(int argc, char *argv[]) {
       retrainHMM();
       break;
       
-    case RETRAIN_SW_UNSUPERVISED_MODE:
+    case RETRAIN_LSW_UNSUPERVISED_MODE:
       retrainLSW();
       break;
       
@@ -350,7 +350,7 @@ Tagger::main(int argc, char *argv[]) {
       taggerHMM();
       break;
 
-    case TAGGER_SW_MODE:
+    case TAGGER_LSW_MODE:
       taggerLSW();
       break;
 
@@ -358,7 +358,7 @@ Tagger::main(int argc, char *argv[]) {
       taggerHMM(true);
       break;
 
-    case TAGGER_SW_FIRST_MODE:
+    case TAGGER_LSW_FIRST_MODE:
       taggerLSW(true);
       break;
 
