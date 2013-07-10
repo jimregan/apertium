@@ -134,14 +134,11 @@ TaggerWord::isAmbiguous() const
 
 wstring
 TaggerWord::get_string_tags() {
-wcerr << L"xxx: tags.size()=" << tags.size() << endl;
-wcerr << L"xxx: array_tags.size() = " << array_tags.size() << endl;
   wstring st;
   set<TTag>::iterator itag = tags.begin();
   
   st=L"{";  
   for(itag=tags.begin(); itag!=tags.end(); itag++) {
-wcerr << L"xxx: *itag = " << *itag << endl;
     if (itag!=tags.begin())
       st+=L',';
     st+=array_tags[*itag];
