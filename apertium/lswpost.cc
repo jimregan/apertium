@@ -84,45 +84,61 @@ LSWPoST::init_probabilities(FILE *ftxt) {
 
   int N = tdlsw->getN();
   int nw = 0;
-
+  TaggerWord *word = NULL;
+  set<TTag> tags_left, tags_mid, tags_right;
+  set<TTag>::iterator iter_left, iter_mid, iter_right;
   vector<vector<vector<double> > > para_matrix(N, vector<vector<double> >(N, vector<double>(N, 0)));
-
   Collection &output = tdlsw->getOutput();
-
   MorphoStream morpho_stream(ftxt, true, tdlsw);
   
-  set<TTag> tags_left, tags, tags_right;
-  
-  TaggerWord *word_left = new TaggerWord(); // word_left
-  word_left->add_tag(eos, L"sent", tdlsw->getPreferRules());
-  TaggerWord *word = morpho_stream.get_next_word(); // word
+  word = new TaggerWord();          // word for tags left
+  word->add_tag(eos, L"sent", tdlsw->getPreferRules());
+  tags_left = word->get_tags();     // tags left
+  if (tags_left.size()==0) { //This is an unknown word
+    tags_left = tdlsw->getOpenClass();
+  }
+  if (output.has_not(tags_left)) {
+    wstring errors;
+    errors = L"A new ambiguity class was found. I cannot continue.\n";
+    errors += L"Word '" + word->get_superficial_form() + L"' not found in the dictionary.\n";
+    errors += L"New ambiguity class: " + word->get_string_tags() + L"\n";
+    errors += L"Take a look at the dictionary and at the training corpus. Then, retrain.";
+    fatal_error(errors);
+  }
+  ++nw;
+  delete word;
+  word = morpho_stream.get_next_word();  // word for tags mid
+  tags_mid = word->get_tags();           // tags mid
+  if (tags_mid.size()==0) { //This is an unknown word
+    tags_mid = tdlsw->getOpenClass();
+  }
+  if (output.has_not(tags_mid)) {
+    wstring errors;
+    errors = L"A new ambiguity class was found. I cannot continue.\n";
+    errors += L"Word '" + word->get_superficial_form() + L"' not found in the dictionary.\n";
+    errors += L"New ambiguity class: " + word->get_string_tags() + L"\n";
+    errors += L"Take a look at the dictionary and at the training corpus. Then, retrain.";
+    fatal_error(errors);
+  }
+  ++nw;
+  delete word;
   if (morpho_stream.getEndOfFile()) {
-    delete word_left;
-    delete word;
     return;
   }
-  TaggerWord *word_right = morpho_stream.get_next_word(); // word_right
 
-  //We count each element of the para matrix
-  while (word_right != NULL) {
+  word = morpho_stream.get_next_word();   // word for tags right
+
+  // count each element of the para matrix
+  while (word != NULL) {
     if (++nw % 10000 == 0) {
       wcerr << L'.' << flush;
     }
 
-    tags_left = word_left->get_tags();
-    if (tags_left.size() == 0) { //This is an unknown word
-      tags_left = tdlsw->getOpenClass();
-    }
-    tags = word->get_tags();
-    if (tags.size() == 0) {
-      tags = tdlsw->getOpenClass();
-    }
-    tags_right = word_right->get_tags();
-    if (tags_right.size() == 0) {
+    tags_right = word->get_tags();       // tags right
+    if (tags_right.size()==0) { //This is an unknown word
       tags_right = tdlsw->getOpenClass();
     }
-
-    if (output.has_not(tags_left) || output.has_not(tags) || output.has_not(tags_right)) {
+    if (output.has_not(tags_right)) {
       wstring errors;
       errors = L"A new ambiguity class was found. I cannot continue.\n";
       errors += L"Word '" + word->get_superficial_form() + L"' not found in the dictionary.\n";
@@ -130,26 +146,22 @@ LSWPoST::init_probabilities(FILE *ftxt) {
       errors += L"Take a look at the dictionary and at the training corpus. Then, retrain.";
       fatal_error(errors);
     }
-    set<TTag>::iterator iter, iter_left, iter_right;
 
-    for (iter = tags.begin(); iter != tags.end(); ++iter) {
-      for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
+    for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
+      for (iter_mid = tags_mid.begin(); iter_mid != tags_mid.end(); ++iter_mid) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
-          para_matrix[*iter_left][*iter][*iter_right] +=
-              1.0 / (tags_left.size() * tags.size() * tags_right.size());
+          para_matrix[*iter_left][*iter_mid][*iter_right] +=
+              1.0 / (tags_left.size() * tags_mid.size() * tags_right.size());
         }
       }
     }
 
-    delete word_left;
-    word_left = word;
-    word = word_right;
-    word_right = morpho_stream.get_next_word();
+    tags_left = tags_mid;
+    tags_mid = tags_right;
+    delete word;
+    word = morpho_stream.get_next_word();
   }
-  delete word_left;
-  delete word;
 
-  //tdlsw->setLSWPoSTProbabilities(N, M, para_matrix);
   for (int i = 0; i < N; ++i) {
     for (int j = 0; j < N; ++j) {
       for (int k = 0; k < N; ++k) {
@@ -170,28 +182,28 @@ LSWPoST::apply_rules() {
 
   /** Forbid Rules
    *  for any sequence that contains a forbid rule,
-   *  the prob is set to ZERO.
+   *  the prob is set to 0.
    */
   for (size_t r = 0; r < forbid_rules.size(); ++r) {
     TTag tagi = forbid_rules[r].tagi;
     TTag tagj = forbid_rules[r].tagj;
     for (int k = 0; k < N; ++k) {
-      //         left mid right
+      //           left mid right
       tdlsw->getD()[tagi][tagj][k] = 0;
       tdlsw->getD()[k][tagi][tagj] = 0;
     }
   }
 
-
   /** Enforce Rules
    *  for any sequence that doesn't satisfy a enforce rule,
+   *  i.e. the latter tag is not in the enforce-after list,
    *  the prob is set to ZERO.
    */
   for (size_t r = 0; r < enforce_rules.size(); ++r) {
     TTag tagi = enforce_rules[r].tagi;
     vector<TTag> tagsj = enforce_rules[r].tagsj;
     for (TTag tagj = 0; tagj < N; ++tagj) {
-      bool found = false;
+      bool found = false; // whether the tagj is in the enforce-after list
       for (size_t j = 0; j < tagsj.size(); ++j) {
         if (tagj == tagsj[j]) {
           found = true;
@@ -200,7 +212,7 @@ LSWPoST::apply_rules() {
       }
       if (!found) {
         for (int k = 0; k < N; ++k) {
-          //         left mid right
+          //           left mid right
           tdlsw->getD()[tagi][tagj][k] = 0;
           tdlsw->getD()[k][tagi][tagj] = 0;
         }
@@ -252,54 +264,70 @@ LSWPoST::read_dictionary(FILE *fdic) {
   }
 
   wcerr << N << L" states\n";
+
+  // set up the probability matrix of tdlsw, the pointer to the TaggerDataLSW object
   tdlsw->setProbabilities(N);
 }
 
 void
 LSWPoST::train(FILE *ftxt) {
+
   int N = tdlsw->getN();
   int nw = 0;
-
+  TaggerWord *word = NULL;
+  set<TTag> tags_left, tags_mid, tags_right;
+  set<TTag>::iterator iter_left, iter_mid, iter_right;
   vector<vector<vector<double> > > para_matrix_new(N, vector<vector<double> >(N, vector<double>(N, 0)));
-
-  set<TTag> tags_left, tags, tags_right;
-
   Collection &output = tdlsw->getOutput();
-
   MorphoStream morpho_stream(ftxt, true, tdlsw);
 
-  TaggerWord *word_left = new TaggerWord(); // word_left
-  word_left->add_tag(eos, L"sent", tdlsw->getPreferRules());
-  TaggerWord *word = morpho_stream.get_next_word(); // word
+  word = new TaggerWord();          // word for tags left
+  word->add_tag(eos, L"sent", tdlsw->getPreferRules());
+  tags_left = word->get_tags();     // tags left
+  if (tags_left.size()==0) { //This is an unknown word
+    tags_left = tdlsw->getOpenClass();
+  }
+  if (output.has_not(tags_left)) {
+    wstring errors;
+    errors = L"A new ambiguity class was found. I cannot continue.\n";
+    errors += L"Word '" + word->get_superficial_form() + L"' not found in the dictionary.\n";
+    errors += L"New ambiguity class: " + word->get_string_tags() + L"\n";
+    errors += L"Take a look at the dictionary and at the training corpus. Then, retrain.";
+    fatal_error(errors);
+  }
+  ++nw;
+  delete word;
+  word = morpho_stream.get_next_word();  // word for tags mid
+  tags_mid = word->get_tags();           // tags mid
+  if (tags_mid.size()==0) { //This is an unknown word
+    tags_mid = tdlsw->getOpenClass();
+  }
+  if (output.has_not(tags_mid)) {
+    wstring errors;
+    errors = L"A new ambiguity class was found. I cannot continue.\n";
+    errors += L"Word '" + word->get_superficial_form() + L"' not found in the dictionary.\n";
+    errors += L"New ambiguity class: " + word->get_string_tags() + L"\n";
+    errors += L"Take a look at the dictionary and at the training corpus. Then, retrain.";
+    fatal_error(errors);
+  }
+  ++nw;
+  delete word;
   if (morpho_stream.getEndOfFile()) {
-    delete word_left;
-    delete word;
     return;
   }
-  TaggerWord *word_right = morpho_stream.get_next_word(); // word_right
 
-  while (word_right) {
+  word = morpho_stream.get_next_word();   // word for tags right
 
-    //wcerr<<L"Enter para continuar\n";
-    //getchar();
+  while (word) {
     if (++nw % 10000 == 0) {
       wcerr << L'.' << flush;
     }
 
-    tags_left = word_left->get_tags();
-    if (tags_left.size() == 0) { //This is an unknown word
-      tags_left = tdlsw->getOpenClass();
-    }
-    tags = word->get_tags();
-    if (tags.size() == 0) { //This is an unknown word
-      tags = tdlsw->getOpenClass();
-    }
-    tags_right = word_right->get_tags();
-    if (tags_right.size() == 0) { //This is an unknown word
+    tags_right = word->get_tags();       // tags right
+    if (tags_right.size()==0) { //This is an unknown word
       tags_right = tdlsw->getOpenClass();
     }
-
-    if (output.has_not(tags_left) || output.has_not(tags) || output.has_not(tags_right)) {
+    if (output.has_not(tags_right)) {
       wstring errors;
       errors = L"A new ambiguity class was found. I cannot continue.\n";
       errors += L"Word '" + word->get_superficial_form() + L"' not found in the dictionary.\n";
@@ -309,39 +337,36 @@ LSWPoST::train(FILE *ftxt) {
     }
 
     double normalization = 0;
-    set<TTag>::iterator iter, iter_left, iter_right;
 
-    for (iter = tags.begin(); iter != tags.end(); ++iter) {
-      for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
+    for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
+      for (iter_mid = tags_mid.begin(); iter_mid != tags_mid.end(); ++iter_mid) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
-          normalization += tdlsw->getD()[*iter_left][*iter][*iter_right];
+          normalization += tdlsw->getD()[*iter_left][*iter_mid][*iter_right];
         }
       }
     }
 
-    for (iter = tags.begin(); iter != tags.end(); ++iter) {
-      for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
+    for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
+      for (iter_mid = tags_mid.begin(); iter_mid != tags_mid.end(); ++iter_mid) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
           if (normalization > ZERO) {
-            para_matrix_new[*iter_left][*iter][*iter_right] += 1.0 / normalization;
+            para_matrix_new[*iter_left][*iter_mid][*iter_right] +=
+                tdlsw->getD()[*iter_left][*iter_mid][*iter_right] / normalization;
           }
         }
       }
     }
 
-    delete word_left;
-    word_left = word;
-    word = word_right;
-    word_right = morpho_stream.get_next_word();
+    tags_left = tags_mid;
+    tags_mid = tags_right;
+    delete word;
+    word = morpho_stream.get_next_word();
   }
-  delete word_left;
-  delete word;
 
-  //tdlsw-setLSWPoSTProbabilities(N, M, (double ***)para_matrix_new);
   for (int i = 0; i < N; ++i) {
     for (int j = 0; j < N; ++j) {
       for (int k = 0; k < N; ++k) {
-        tdlsw->getD()[i][j][k] = tdlsw->getD()[i][j][k] * para_matrix_new[i][j][k];
+        tdlsw->getD()[i][j][k] = para_matrix_new[i][j][k];
       }
     }
   }
@@ -362,41 +387,56 @@ LSWPoST::print_para_matrix() {
 
 void 
 LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
-  set<TTag> tags_left, tags, tags_right;
-
+  TaggerWord *word_left = NULL, *word_mid = NULL, *word_right = NULL;
+  set<TTag> tags_left, tags_mid, tags_right;
+  set<TTag>::iterator iter_left, iter_mid, iter_right;
   MorphoStream morpho_stream(in, debug, tdlsw);
   morpho_stream.setNullFlush(null_flush);                      
-  
   Collection &output = tdlsw->getOutput();
-  
-  TaggerWord *word_left = new TaggerWord(); // word_left
+ 
+  word_left = new TaggerWord();          // word left
   word_left->add_tag(eos, L"sent", tdlsw->getPreferRules());
   word_left->set_show_sf(show_sf);
-  TaggerWord *word = morpho_stream.get_next_word(); // word
+  tags_left = word_left->get_tags();          // tags left
+  if (output.has_not(tags_left)) {
+    if (debug) {
+      wstring errors;
+      errors = L"A new ambiguity class was found. I cannot continue.\n";
+      errors += L"Word '" + word_left->get_superficial_form() + L"' not found in the dictionary.\n";
+      errors += L"New ambiguity class: " + word_left->get_string_tags() + L"\n";
+      errors += L"Take a look at the dictionary and at the training corpus. Then, retrain.";
+      fatal_error(errors);
+    }
+    tags_left = find_similar_ambiguity_class(tags_left);
+  }
+  
+  word_mid = morpho_stream.get_next_word(); // word mid
+  word_mid->set_show_sf(show_sf);
+  tags_mid = word_mid->get_tags();          // tags mid
+  if (output.has_not(tags_mid)) {
+    if (debug) {
+      wstring errors;
+      errors = L"A new ambiguity class was found. I cannot continue.\n";
+      errors += L"Word '" + word_mid->get_superficial_form() + L"' not found in the dictionary.\n";
+      errors += L"New ambiguity class: " + word_mid->get_string_tags() + L"\n";
+      errors += L"Take a look at the dictionary and at the training corpus. Then, retrain.";
+      fatal_error(errors);
+    }
+    tags_mid = find_similar_ambiguity_class(tags_mid);
+  }
   if (morpho_stream.getEndOfFile()) {
     delete word_left;
-    delete word;
+    delete word_mid;
     return;
   }
-  word->set_show_sf(show_sf);
-  TaggerWord *word_right = morpho_stream.get_next_word(); // word_right
+  word_right = morpho_stream.get_next_word(); // word_right
   word_right->set_show_sf(show_sf);
 
   wstring micad;
 
   while (word_right) {
-    tags_left = word_left->get_tags();
-    if (tags_left.size() == 0) {
-      tags_left = tdlsw->getOpenClass();
-    }
-    tags = word->get_tags();
-    if (tags.size() == 0) {
-      tags = tdlsw->getOpenClass();
-    }
+
     tags_right = word_right->get_tags();
-    if (tags_right.size() == 0) {
-      tags_right = tdlsw->getOpenClass();
-    }
     if (output.has_not(tags_right)) {
       if (debug) {
         wstring errors;
@@ -410,22 +450,21 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
     }
 
     double max = -1;
-    TTag tag_max = *tags.begin();
-    set<TTag>::iterator iter, iter_left, iter_right;
-    for (iter = tags.begin(); iter != tags.end(); ++iter) {
+    TTag tag_max = *tags_mid.begin();
+    for (iter_mid = tags_mid.begin(); iter_mid != tags_mid.end(); ++iter_mid) {
       double n = 0;
       for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
-          n += tdlsw->getD()[*iter_left][*iter][*iter_right];
+          n += tdlsw->getD()[*iter_left][*iter_mid][*iter_right];
         }
       }
       if (n > max) {
         max = n;
-        tag_max = *iter;
+        tag_max = *iter_mid;
       }
     }
 
-    micad = word->get_lexical_form(tag_max, (tdlsw->getTagIndex())[L"TAG_kEOF"]);
+    micad = word_mid->get_lexical_form(tag_max, (tdlsw->getTagIndex())[L"TAG_kEOF"]);
     fputws_unlocked(micad.c_str(), out);
     if (morpho_stream.getEndOfFile()) {
       if (null_flush) {
@@ -436,15 +475,17 @@ LSWPoST::tagger(FILE *in, FILE *out, bool show_all_good_first) {
     }
   
     delete word_left;
-    word_left = word;
-    word = word_right;
+    word_left = word_mid;
+    tags_left = tags_mid;
+    word_mid = word_right;
+    tags_mid = tags_right;
     word_right = morpho_stream.get_next_word();
     if (word_right != NULL) {
       word_right->set_show_sf(show_sf);
     }
   }
   delete word_left;
-  delete word;
+  delete word_mid;
 }
 
 set<TTag>                                                                                     
