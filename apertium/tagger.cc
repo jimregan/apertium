@@ -720,7 +720,7 @@ Tagger::help() {
   ostream &out = cerr;
   char* localname=new char[name.size()+1];
   strcpy(localname, name.c_str());
-  out << basename(localname) << ": HMM part-of-speech tagging and training program" << endl;
+  out << basename(localname) << ": HMM/LSW part-of-speech tagging and training program" << endl;
   out << "GENERIC USAGE: " << basename(localname) << "[-d] <OPTION>=[PARAM] [FILES]" << endl;
   out << "USAGE: " << basename(localname) << "[-d] [-w] -t=n DIC CRP TSX TAGGER_DATA" << endl;
   out << "       " << basename(localname) << "[-d] [-w] -s=n DIC CRP TSX TAGGER_DATA HTAG UNTAG" << endl;
