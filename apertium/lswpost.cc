@@ -90,6 +90,7 @@ LSWPoST::init_probabilities(FILE *ftxt) {
   vector<vector<vector<double> > > para_matrix(N, vector<vector<double> >(N, vector<double>(N, 0)));
   Collection &output = tdlsw->getOutput();
   MorphoStream morpho_stream(ftxt, true, tdlsw);
+  int num_valid_seq = 0;
   
   word = new TaggerWord();          // word for tags left
   word->add_tag(eos, L"sent", tdlsw->getPreferRules());
@@ -147,20 +148,34 @@ LSWPoST::init_probabilities(FILE *ftxt) {
       fatal_error(errors);
     }
 
+    num_valid_seq = tags_left.size() * tags_mid.size() * tags_right.size();
     for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
       for (iter_mid = tags_mid.begin(); iter_mid != tags_mid.end(); ++iter_mid) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
-          para_matrix[*iter_left][*iter_mid][*iter_right] +=
-              1.0 / (tags_left.size() * tags_mid.size() * tags_right.size());
-        }
-      }
+          if (!is_valid_seq(*iter_left, *iter_mid, *iter_right)) {
+            --num_valid_seq;
+          }
+        } // for iter_right
+      } // for iter_mid
+    } // for iter_left
+
+    if (num_valid_seq != 0) {
+      for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
+        for (iter_mid = tags_mid.begin(); iter_mid != tags_mid.end(); ++iter_mid) {
+          for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {
+            if (is_valid_seq(*iter_left, *iter_mid, *iter_right)) {
+              para_matrix[*iter_left][*iter_mid][*iter_right] += 1.0 / num_valid_seq;
+            }
+          } // for iter_right
+        } // for iter_mid
+      } // for iter_left
     }
 
     tags_left = tags_mid;
     tags_mid = tags_right;
     delete word;
     word = morpho_stream.get_next_word();
-  }
+  } // while word != NULL
 
   for (int i = 0; i < N; ++i) {
     for (int j = 0; j < N; ++j) {
@@ -173,52 +188,45 @@ LSWPoST::init_probabilities(FILE *ftxt) {
   wcerr << L"\n";
 }
 
-void
-LSWPoST::apply_rules() {
+bool LSWPoST::is_valid_seq(TTag left, TTag mid, TTag right) {
 
   vector<TForbidRule> &forbid_rules = tdlsw->getForbidRules();
   vector<TEnforceAfterRule> &enforce_rules = tdlsw->getEnforceRules();
-  int N = tdlsw->getN();
 
-  /** Forbid Rules
-   *  for any sequence that contains a forbid rule,
-   *  the prob is set to 0.
-   */
   for (size_t r = 0; r < forbid_rules.size(); ++r) {
-    TTag tagi = forbid_rules[r].tagi;
-    TTag tagj = forbid_rules[r].tagj;
-    for (int k = 0; k < N; ++k) {
-      //           left mid right
-      tdlsw->getD()[tagi][tagj][k] = 0;
-      tdlsw->getD()[k][tagi][tagj] = 0;
+    if ((left == forbid_rules[r].tagi && mid == forbid_rules[r].tagj)
+        || (mid == forbid_rules[r].tagi && right == forbid_rules[r].tagj)) {
+      return false;
     }
-  }
+  }// for r in forbid rules
 
-  /** Enforce Rules
-   *  for any sequence that doesn't satisfy a enforce rule,
-   *  i.e. the latter tag is not in the enforce-after list,
-   *  the prob is set to ZERO.
-   */
   for (size_t r = 0; r < enforce_rules.size(); ++r) {
-    TTag tagi = enforce_rules[r].tagi;
-    vector<TTag> tagsj = enforce_rules[r].tagsj;
-    for (TTag tagj = 0; tagj < N; ++tagj) {
-      bool found = false; // whether the tagj is in the enforce-after list
-      for (size_t j = 0; j < tagsj.size(); ++j) {
-        if (tagj == tagsj[j]) {
+    if (left == enforce_rules[r].tagi) {
+      bool found = false;
+      for (TTag tagj = 0; tagj < enforce_rules[r].tagsj.size(); ++tagj) {
+        if (tagj == mid) {
           found = true;
           break;
         }
       }
       if (!found) {
-        for (int k = 0; k < N; ++k) {
-          //           left mid right
-          tdlsw->getD()[tagi][tagj][k] = 0;
-          tdlsw->getD()[k][tagi][tagj] = 0;
+        return false;
+      }
+    } else if (mid == enforce_rules[r].tagi) {
+      bool found = false;
+      for (TTag tagj = 0; tagj < enforce_rules[r].tagsj.size(); ++tagj) {
+        if (tagj == right) {
+          found = true;
+          break;
         }
       }
-    } // for tagj
-  } // for r
+      if (!found) {
+        return false;
+      }
+    }
+  } // for r in enforce rules
+
+  return true;
 }
 
 void

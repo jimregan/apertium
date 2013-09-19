@@ -548,8 +548,8 @@ Tagger::trainLSW() {
     filerror(filenames[1]);
   }
 
-  wcerr << L"Applying forbid and enforce rules...\n";
-  lswpost.apply_rules();
+//  wcerr << L"Applying forbid and enforce rules...\n";
+//  lswpost.apply_rules();
 
   wcerr << L"Training (Light Sliding-Window, Unsupervised)...\n";
   for(int i=0; i != nit; i++) {

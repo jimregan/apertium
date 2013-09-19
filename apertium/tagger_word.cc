@@ -141,11 +141,7 @@ TaggerWord::get_string_tags() {
   for(itag=tags.begin(); itag!=tags.end(); itag++) {
     if (itag!=tags.begin())
       st+=L',';
-    ////st+=array_tags[*itag]; // xxx
-    wchar_t buf[10]; // xxx
-    swprintf(buf, 10, L"%d", *itag); // xxx
-    wstring itag_str = buf; // xxx
-    st+=array_tags[*itag] + L"__" + lexical_forms[*itag] + L"__" + itag_str; // xxx
+    st+=array_tags[*itag];
   }
   st += L'}';  
   

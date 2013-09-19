@@ -495,13 +495,10 @@ HMM::filter_ambiguity_classes(FILE *in, FILE *out) {
   
   while(word) {
     set<TTag> tags = word->get_tags();
-
-	wcerr << L"xxx filter_ambituity_classes:" << *word << endl;
-
     if(tags.size() > 0) {     
       if(ambiguity_classes.find(tags) == ambiguity_classes.end()) {
 	    ambiguity_classes.insert(tags);
-	    ////word->outputOriginal(out);
+	    word->outputOriginal(out);
 	    //wcerr<<word->get_string_tags()<<L"\n";
       }
     }

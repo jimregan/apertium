@@ -88,15 +88,16 @@ public:
     */
    void read_dictionary(FILE *fdic);
 
-   /** Init probabilities
+   /** Whether a tag sequence is valid, according to the forbid and enforce rules
     */
-   void init_probabilities(FILE *ftxt);
+   bool is_valid_seq(TTag left, TTag mid, TTag right);
 
-   /** It applies the forbid and enforce rules found in tagger specification.
+   /** Init probabilities
+    *  It applies the forbid and enforce rules found in tagger specification.
     *  To do so, the joint probability of a tag sequence that contains a forbid
     *  rule, or doesn't satisfy a enforce rule, is set to 0.
     */
-   void apply_rules();
+   void init_probabilities(FILE *ftxt);
 
    /** Unsupervised training algorithm (Baum-Welch implementation).
     *  @param ftxt the input stream with the untagged corpus to process
