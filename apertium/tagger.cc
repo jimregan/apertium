@@ -536,7 +536,7 @@ Tagger::trainLSW() {
   else {
     filerror(filenames[0]);
   }
-  wcerr << L"Average initialization of Light Sliding-Window probabilities...\n";
+  wcerr << L"Average initialization of Light Sliding-Window probabilities, with forbid and enforce rules...\n";
   FILE *fcrp = fopen(filenames[1].c_str(), "r");
   if(fcrp) {
 #ifdef _MSC_VER
@@ -547,9 +547,6 @@ Tagger::trainLSW() {
   else {
     filerror(filenames[1]);
   }
-
-//  wcerr << L"Applying forbid and enforce rules...\n";
-//  lswpost.apply_rules();
 
   wcerr << L"Training (Light Sliding-Window, Unsupervised)...\n";
   for(int i=0; i != nit; i++) {
