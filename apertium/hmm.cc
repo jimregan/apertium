@@ -914,7 +914,7 @@ void HMM::print_ambiguity_classes() {
 set<TTag>
 HMM::find_similar_ambiguity_class(set<TTag> c) {
   int size_ret = -1;
-  set<TTag> ret=tdhmm->getOpenClass(); //Se devolver√° si no encontramos ninguna clase mejor
+  set<TTag> ret=tdhmm->getOpenClass(); //Se devolver· si no encontramos ninguna clase mejor
   bool skeep_class;
   Collection &output = tdhmm->getOutput();
 

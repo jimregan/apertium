@@ -72,7 +72,7 @@ Tagger::getMode(int argc, char *argv[]) {
   while (true) {
 #if HAVE_GETOPT_LONG
     static struct option long_options[] =  {
-      {"sliding-winodw",   no_argument, 0, 'w'},
+      {"sliding-window",   no_argument, 0, 'w'},
       {"train",      required_argument, 0, 't'},
       {"supervised", required_argument, 0, 's'},
       {"retrain",    required_argument, 0, 'r'},
@@ -712,6 +712,7 @@ Tagger::retrainLSW() {
   tdlsw.write(ftdata);
   fclose(ftdata);
 }
+
 void
 Tagger::help() {
   ostream &out = cerr;
