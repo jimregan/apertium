@@ -203,8 +203,8 @@ bool LSWPoST::is_valid_seq(TTag left, TTag mid, TTag right) {
   for (size_t r = 0; r < enforce_rules.size(); ++r) {
     if (left == enforce_rules[r].tagi) {
       bool found = false;
-      for (TTag tagj = 0; tagj < enforce_rules[r].tagsj.size(); ++tagj) {
-        if (tagj == mid) {
+      for (size_t j = 0; j < enforce_rules[r].tagsj.size(); ++j) {
+        if (enforce_rules[r].tagsj[j] == mid) {
           found = true;
           break;
         }
@@ -214,8 +214,8 @@ bool LSWPoST::is_valid_seq(TTag left, TTag mid, TTag right) {
       }
     } else if (mid == enforce_rules[r].tagi) {
       bool found = false;
-      for (TTag tagj = 0; tagj < enforce_rules[r].tagsj.size(); ++tagj) {
-        if (tagj == right) {
+      for (size_t j = 0; j < enforce_rules[r].tagsj.size(); ++j) {
+        if (enforce_rules[r].tagsj[j] == right) {
           found = true;
           break;
         }
