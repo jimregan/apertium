@@ -18,7 +18,7 @@
  */
 /** PoS tagger main program.
  *
- *  @author Felipe S�nchez-Mart�nez - fsanchez@dlsi.ua.es
+ *  @author Felipe Sánchez-Martínez - fsanchez@dlsi.ua.es
  */
 
 #include <apertium/tagger.h>
@@ -100,20 +100,15 @@ Tagger::getMode(int argc, char *argv[]) {
         is_sw = true;
         if (mode == TRAIN_HMM_UNSUPERVISED_MODE) {
           mode = TRAIN_LSW_UNSUPERVISED_MODE;
-        }
-        if (mode == TRAIN_HMM_SUPERVISED_MODE) {
+        } else if (mode == TRAIN_HMM_SUPERVISED_MODE) {
           mode = TRAIN_LSW_SUPERVISED_MODE;
-        }
-        if (mode == RETRAIN_HMM_UNSUPERVISED_MODE) {
+        } else if (mode == RETRAIN_HMM_UNSUPERVISED_MODE) {
           mode = RETRAIN_LSW_UNSUPERVISED_MODE;
-        }
-        if (mode == TAGGER_HMM_MODE) {
+        } else if (mode == TAGGER_HMM_MODE) {
           mode = TAGGER_LSW_MODE;
-        }
-        if (mode == TAGGER_HMM_EVAL_MODE) {
+        } else if (mode == TAGGER_HMM_EVAL_MODE) {
           mode = TAGGER_LSW_EVAL_MODE;
-        }
-        if (mode == TAGGER_HMM_FIRST_MODE) {
+        } else if (mode == TAGGER_HMM_FIRST_MODE) {
           mode = TAGGER_LSW_FIRST_MODE;
         }
         break;
@@ -202,7 +197,7 @@ Tagger::getMode(int argc, char *argv[]) {
             mode = TAGGER_LSW_MODE;
           }
           else {
-	    mode = TAGGER_HMM_MODE;
+	        mode = TAGGER_HMM_MODE;
           }
         }
         else {

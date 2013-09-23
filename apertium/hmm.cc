@@ -786,7 +786,7 @@ HMM::tagger(FILE *in, FILE *out, bool show_all_good_first) {
     if (tags.size()==0) // This is an unknown word
       tags = tdhmm->getOpenClass();
                        
-    if (output.has_not(tags)) {  // Encontrada una clase de ambigÃ¼edad desconocida hasta el momento      
+    if (output.has_not(tags)) {  // Encontrada una clase de ambigüedad desconocida hasta el momento      
       if (debug) {
         wstring errors;
 	errors = L"A new ambiguity class was found. \n";

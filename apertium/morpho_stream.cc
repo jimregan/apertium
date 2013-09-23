@@ -27,7 +27,6 @@
 #include <vector>
 #include <apertium/string_utils.h>
 #include "apertium_config.h"
-#include "tagger_word.h"
 #include <apertium/unlocked_cstdio.h>
 
 using namespace Apertium;
@@ -36,7 +35,6 @@ MorphoStream::MorphoStream(FILE *ftxt, bool d, TaggerData *t)
   foundEOF = false;
   debug=d;
   td = t;
-  TaggerWord::setArrayTags(td->getArrayTags());
   me = td->getPatternList().newMatchExe();
   alphabet = td->getPatternList().getAlphabet();
   input = ftxt;
