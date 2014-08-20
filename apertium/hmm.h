@@ -77,7 +77,7 @@ public:
  
    /** Constructor
     */
-   HMM(TaggerDataHMM *thmm);
+   HMM(TaggerDataHMM *tdhmm);
 
    /** Destructor
     */

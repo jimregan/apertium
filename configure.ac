@@ -3,12 +3,12 @@
 
 AC_PREREQ(2.52)
 
-m4_define([required_lttoolbox_version], [3.2.0])
+m4_define([required_lttoolbox_version], [3.3.0])
 m4_define([required_libxml_version], [2.6.17])
 m4_define([required_libpcre_version], [6.4])
 #m4_define([required_pkg_config_version], [0.15])
 
-AC_INIT([apertium], [3.2.0], [sortiz@users.sourceforge.net])
+AC_INIT([apertium], [3.3.0], [sortiz@users.sourceforge.net])
 AC_CONFIG_HEADER([apertium/apertium_config.h])
 
 AC_CANONICAL_SYSTEM
@@ -17,7 +17,7 @@ GENERIC_LIBRARY_NAME=apertium
 
 # Release versioning
 GENERIC_MAJOR_VERSION=3
-GENERIC_MINOR_VERSION=2
+GENERIC_MINOR_VERSION=3
 GENERIC_MICRO_VERSION=0
 
 # API version (often = GENERIC_MAJOR_VERSION.GENERIC_MINOR_VERSION)
@@ -187,10 +187,7 @@ AC_CHECK_HEADER(pcreposix.h,
   AC_CHECK_LIB(pcre, pcre_fullinfo,[
     LIBS="$LIBS -lpcreposix -lpcre"
     no_comp_check=yes],
-    AC_CHECK_LIB(pcre, pcre_info,[ # info is deprecated in favor of fullinfo, but leave it in case old versions don't have fullinfo
-      LIBS="$LIBS -lpcreposix -lpcre"
-      no_comp_check=yes],
-      AC_MSG_ERROR([*** unable to locate pcre library ***]))),
+    AC_MSG_ERROR([*** unable to locate pcre library ***])),
   AC_MSG_ERROR([*** unable to locate pcreposix.h include file ***]))
 
 AC_CHECK_HEADER(pcrecpp.h,
@@ -203,7 +200,7 @@ fi
 
 
 PKG_CHECK_MODULES(APERTIUM, [
-  lttoolbox >= required_lttoolbox_version 
+  lttoolbox >= required_lttoolbox_version
   libxml-2.0 >= required_libxml_version 
   libpcre >= required_libpcre_version], CPPFLAGS="$CPPFLAGS $APERTIUM_CFLAGS"; LIBS="$LIBS $APERTIUM_LIBS")
 

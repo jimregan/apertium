@@ -24,7 +24,7 @@ cc_sources = collection.cc constant_manager.cc hmm.cc lswpost.cc interchunk.cc \
              tmx_book_to_matrix.cc tmx_dictionary.cc \
              tmx_strings_and_streams.cc tmx_trail_postprocessors.cc \
              tmx_translate.cc latex_accentsmap.cc
-             
+
 library_includedir = $(includedir)/$(GENERIC_LIBRARY_NAME)-$(GENERIC_API_VERSION)/$(GENERIC_LIBRARY_NAME)
 library_include_HEADERS = $(h_sources)
 
@@ -32,14 +32,15 @@ GENERATEDSCRIPTS = apertium-gen-deformat apertium-gen-reformat \
                    apertium-validate-tagger \
                    apertium-validate-transfer apertium-validate-dictionary \
                    apertium-validate-modes \
-                   apertium-gen-lextorbil \
-                   apertium-gen-lextormono apertium-gen-wlist-lextor \
-                   apertium-preprocess-corpus-lextor \
-                   apertium-gen-stopwords-lextor \
                    apertium-validate-interchunk \
                    apertium-validate-postchunk apertium apertium-unformat \
                    apertium-gen-modes apertium-validate-acx \
                    apertium-utils-fixlatex
+#DEPR.:
+                   #apertium-preprocess-corpus-lextor 
+                   #apertium-gen-stopwords-lextor 
+                   #apertium-gen-lextorbil 
+                   #apertium-gen-lextormono apertium-gen-wlist-lextor 
 
 lib_LTLIBRARIES = libapertium3.la
 libapertium3_la_SOURCES = $(h_sources) $(cc_sources)
@@ -60,14 +61,15 @@ bin_PROGRAMS = apertium-pretransfer apertium-destxt apertium-retxt \
                apertium-postlatex-raw \
                apertium-tagger \
                apertium-preprocess-transfer apertium-transfer \
-               apertium-filter-ambiguity apertium-lextor \
-               apertium-gen-wlist-lextor-translation \
+               apertium-filter-ambiguity  \
                apertium-interchunk apertium-postchunk \
                apertium-multiple-translations \
                apertium-tagger-apply-new-rules \
                apertium-tagger-readwords \
                apertium-tmxbuild
                ###pruebas-lextor apertium-lextor-search apertium-lextor-eval
+               ###apertium-gen-wlist-lextor-translation 
+               ###apertium-lextor 
 
 bin_SCRIPTS =  $(GENERATEDSCRIPTS)
 
@@ -80,7 +82,7 @@ apertiumsysconf = $(prefix)/etc/apertium
 
 apertium_DATA = deformat.xsl reformat.xsl new2old.xsl lexchoice.xsl \
                 lexchoicebil.xsl tagger.dtd interchunk.dtd format.dtd \
-                transfer.dtd dix.dtd postchunk.dtd acx.rng modes.dtd modes2bash.xsl \
+                transfer.dtd postchunk.dtd modes.dtd modes2bash.xsl \
                 apertium-createmodes.awk
 
 apertium_pretransfer_SOURCES = apertium_pretransfer.cc
@@ -137,8 +139,8 @@ apertium_interchunk_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
 apertium_postchunk_SOURCES = apertium_postchunk.cc
 apertium_postchunk_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
 
-apertium_lextor_SOURCES = apertium_lextor.cc
-apertium_lextor_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+###apertium_lextor_SOURCES = apertium_lextor.cc
+###apertium_lextor_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
 
 #apertium_lextor_eval_SOURCES = apertium-lextor-eval.C
 #apertium_lextor_eval_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
@@ -155,8 +157,8 @@ apertium_tagger_readwords_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VER
 ###pruebas_lextor_SOURCES = pruebas-lextor.C
 ###pruebas_lextor_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
 
-apertium_gen_wlist_lextor_translation_SOURCES = apertium_gen_wlist_lextor_translation.cc
-apertium_gen_wlist_lextor_translation_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+###apertium_gen_wlist_lextor_translation_SOURCES = apertium_gen_wlist_lextor_translation.cc
+###apertium_gen_wlist_lextor_translation_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
 
 
 INCLUDES = -I$(top_srcdir) $(APERTIUM_CFLAGS)
@@ -279,7 +281,7 @@ apertium_remediawiki.cc: mediawiki-format.xml Makefile.am reformat.xsl
 	$(XSLTPROC) reformat.xsl mediawiki-format.xml >$@tmp
 	$(FLEX) -Cfer -o$@ $@tmp
 	rm $@tmp
-	
+
 apertium_prelatex.cc: apertium-prelatex.l
 	$(FLEX) -Cfer -o$@ apertium-prelatex.l
 
@@ -288,7 +290,7 @@ apertium_postlatex.cc: apertium-postlatex.l
 
 apertium_postlatex_raw.cc: apertium-postlatex-raw.l
 	$(FLEX) -Cfer -o$@ apertium-postlatex-raw.l
-	
+
 apertium-validate-tagger: Makefile.am validate-header.sh
 	@echo "Creating apertium-validate-tagger script"
 	@echo "#!$(BASH)" > $@
@@ -325,7 +327,7 @@ apertium-validate-acx: Makefile.am validate-header.sh
 	@echo "Creating apertium-validate-acx script"
 	@echo "#!$(BASH)" > $@
 	@cat validate-header.sh >> $@
-	@echo "$(XMLLINT) --relaxng $(apertiumdir)/acx.rng --noout \$$FILE1 && exit 0;" >>$@
+	@echo "$(XMLLINT) --relaxng $(prefix)/share/lttoolbox/acx.rng --noout \$$FILE1 && exit 0;" >>$@
 	@echo "exit 1;" >> $@
 	@chmod a+x $@
 
@@ -342,7 +344,7 @@ apertium-validate-dictionary: Makefile.am validate-header.sh
 	@echo "Creating apertium-validate-dictionary script"
 	@echo "#!$(BASH)" > $@
 	@cat validate-header.sh >> $@
-	@echo "$(XMLLINT) --dtdvalid $(apertiumdir)/dix.dtd --noout \$$FILE1 && exit 0;" >> $@
+	@echo "$(XMLLINT) --dtdvalid $(prefix)/share/lttoolbox/dix.dtd --noout \$$FILE1 && exit 0;" >> $@
 	@echo "exit 1;" >> $@
 	@chmod a+x $@
 
@@ -493,14 +495,15 @@ man_MANS=apertium.1 apertium-deshtml.1 apertium-desrtf.1 apertium-destxt.1 \
 
 EXTRA_DIST = gen-header.sh deformat-header.sh \
              reformat.xsl deformat.xsl new2old.xsl lexchoice.xsl lexchoicebil.xsl \
-             tagger.dtd transfer.dtd format.dtd dix.dtd txt-format.xml \
+             tagger.dtd transfer.dtd format.dtd txt-format.xml \
              html-format.xml odt-format.xml rtf-format.xml wxml-format.xml latex-format.xml\
              html-noent-format.xml \
              xlsx-format.xml pptx-format.xml mediawiki-format.xml trans-header.sh \
+             apertium-postlatex.l  apertium-postlatex-raw.l  apertium-prelatex.l \
              apertium-header.sh apertium-unformat-header.sh $(man_MANS) \
              xpresstag-format.xml \
              validate-header.sh transformdic-header.sh transformdicbil-header.sh \
              gen-wlist-lextor-header.sh gen-stopwords-lextor.sh preprocess-corpus-lextor.sh \
-             interchunk.dtd postchunk.dtd modes.dtd acx.rng \
+             interchunk.dtd postchunk.dtd modes.dtd \
              utils-fixlatex-header.sh \
              modes-header.sh apertium-createmodes.awk modes2bash.xsl ###trans-lextor-header.sh 

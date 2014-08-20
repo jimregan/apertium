@@ -4,9 +4,12 @@ DIST_SUBDIRS = $(GENERIC_LIBRARY_NAME)
 modesdir=$(prefix)/share/apertium/modes
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = apertium-$(GENERIC_RELEASE).pc
+pkgconfig_DATA = apertium.pc
 
-EXTRA_DIST=autogen.sh README-MODES
+aclocaldir = $(datadir)/aclocal
+aclocal_DATA = apertium.m4
+
+EXTRA_DIST=autogen.sh README-MODES apertium.m4
 
 install-data-local:
 	mkdir -p $(DESTDIR)$(modesdir)

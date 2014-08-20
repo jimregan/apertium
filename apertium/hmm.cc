@@ -47,9 +47,9 @@
 using namespace Apertium;
 using namespace tagger_utils;
 
-HMM::HMM(TaggerDataHMM *thmm)
+HMM::HMM(TaggerDataHMM *tdhmm)
 {
-  this->tdhmm = thmm;
+  this->tdhmm = tdhmm;
 
   debug=false;
   show_sf=false;
