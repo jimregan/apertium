@@ -803,6 +803,9 @@ HMM::tagger(FILE *in, FILE *out, bool show_all_good_first) {
 #ifdef __GNUC__
     clear_array_double(alpha[nwpend%2], N);    
     clear_array_vector(best[nwpend%2], N);
+#else
+    std::fill(alpha[nwpend%2].begin(), alpha[nwpend%2].end(), 0.0);
+    best[nwpend%2].clear();
 #endif
     
     //Induction
