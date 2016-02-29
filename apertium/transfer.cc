@@ -836,12 +836,13 @@ Transfer::processTags(xmlNode *localroot)
   return result;
 }
 
-void
+int
 Transfer::processInstruction(xmlNode *localroot)
 {
+  int words_to_consume=-1;
   if(!xmlStrcmp(localroot->name, (const xmlChar *) "choose"))
   {
-    processChoose(localroot);
+     words_to_consume=processChoose(localroot);
   }
   else if(!xmlStrcmp(localroot->name, (const xmlChar *) "let"))
   {
@@ -863,6 +864,31 @@ Transfer::processInstruction(xmlNode *localroot)
   {
     processModifyCase(localroot);
   }
+  else if(!xmlStrcmp(localroot->name, (const xmlChar *) "reject-current-rule"))
+  {
+    words_to_consume=processRejectCurrentRule(localroot);
+  }
+  return words_to_consume;
+}
+
+int
+Transfer::processRejectCurrentRule(xmlNode *localroot)
+{
+  bool shifting=true;
+  string value = "";
+  for(xmlAttr *i = localroot->properties; i != NULL; i = i->next)
+  {
+    if(!xmlStrcmp(i->name, (const xmlChar *) "shifting"))
+    {
+      value = (char *) i->children->content; 
+      break;
+    }
+  }
+  
+  if(value=="no")
+	shifting=false;
+
+  return shifting?1:0;
 }
 
 void
@@ -1127,9 +1153,10 @@ Transfer::processCallMacro(xmlNode *localroot)
   }
 }
 
-void
+int
 Transfer::processChoose(xmlNode *localroot)
 {
+  int words_to_consume=-1;
   for(xmlNode *i = localroot->children; i != NULL; i = i->next)
   {
     if(i->type == XML_ELEMENT_NODE)
@@ -1155,13 +1182,16 @@ Transfer::processChoose(xmlNode *localroot)
 	    }
 	    else
 	    {
-	      processInstruction(j);
+	      words_to_consume=processInstruction(j);
+	      if(words_to_consume!=-1)
+			return words_to_consume;
+	      
 	    }
 	  }
 	}
         if(picked_option)
         {
-          return;
+          return words_to_consume;
         }	
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "otherwise"))
@@ -1170,12 +1200,15 @@ Transfer::processChoose(xmlNode *localroot)
 	{
 	  if(j->type == XML_ELEMENT_NODE)
 	  {
-	    processInstruction(j);
+	    words_to_consume=processInstruction(j);
+	    if(words_to_consume!=-1)
+			return words_to_consume;
 	  }
 	}
       }
     }
   }
+  return words_to_consume;
 }
 
 bool
@@ -1722,17 +1755,26 @@ Transfer::tags(string const &str) const
   return result;
 }
 
-void
+int
 Transfer::processRule(xmlNode *localroot)
 {
+  int instruction_return,words_to_consume=-1;
   // localroot is suposed to be an 'action' tag
   for(xmlNode *i = localroot->children; i != NULL; i = i->next)
   {
     if(i->type == XML_ELEMENT_NODE)
     {
-      processInstruction(i);
+      instruction_return=processInstruction(i);
+      // When an instruction which modifies the number of words to be consumed
+      // from the input is found, execution of the rule is stopped
+      if(instruction_return != -1)
+      {
+		words_to_consume=instruction_return;
+		break;
+	  }
     }
   }
+  return words_to_consume;
 }
 
 TransferToken &
@@ -1840,24 +1882,101 @@ Transfer::transfer(FILE *in, FILE *out)
     transfer_wrapper_null_flush(in, out);
   }
   
-  int last = 0;
+  int last = 0, prev_last = 0;
+  int lastrule_id=-1;
+  set<int> banned_rules;
 
   output = out;
   ms.init(me->getInitial());
   
   while(true)
-  {
+  {  
+    
+    //vmsanchez:debug
+    if(trace)
+    {
+       cerr << "Loop start " << endl;
+       cerr << "ms.size: " << ms.size() << endl;
+       
+       cerr << "tmpword.size(): " << tmpword.size() << endl;
+        for (unsigned int ind = 0; ind < tmpword.size(); ind++)
+        {
+          if (ind != 0)
+          {
+            wcerr << L" ";
+          }
+          wcerr << *tmpword[ind];
+        }
+        wcerr << endl;
+	
+       cerr << "tmpblank.size(): " << tmpblank.size() << endl;
+        for (unsigned int ind = 0; ind < tmpblank.size(); ind++)
+        {
+          wcerr << L"'";
+          wcerr << *tmpblank[ind];
+	  wcerr << L"' ";
+        }
+        wcerr << endl;
+	
+	cerr << "last: " << last << endl;
+	cerr << "prev_last: " << prev_last << endl << endl;
+    }
+    
     if(ms.size() == 0)
     {
       if(lastrule != NULL)
       {
-	applyRule();
-	input_buffer.setPos(last);
+	int num_words_to_consume=applyRule();
+	
+	//vmsanchez:debug
+	if(trace)
+	{
+	  cerr << "num_words_to_consume: " << num_words_to_consume << endl;
+	}
+	
+	//Consume all the words from the input which matched the rule. 
+	//This piece of code is executed unless the rule contains a "reject-current-rule" instruction
+	if(num_words_to_consume < 0)
+	{
+		banned_rules.clear();
+		input_buffer.setPos(last);
+	}
+	else if (num_words_to_consume > 0)
+	{
+		banned_rules.clear();
+		if(prev_last>=input_buffer.getSize())
+			input_buffer.setPos(0);
+		else
+			input_buffer.setPos(prev_last+1);
+		int num_consumed_words=0;
+		while(num_consumed_words < num_words_to_consume)
+		{
+			 TransferToken& local_tt=input_buffer.next();
+			 if (local_tt.getType()==tt_word)
+				num_consumed_words++;
+		}
+	}
+	else
+	{
+		//Add rule to banned rules
+		banned_rules.insert(lastrule_id);
+		//input_buffer.setPos((prev_last+1)%input_buffer.getSize());   
+		input_buffer.setPos(prev_last);   
+		input_buffer.next();
+		last=input_buffer.getPos();
+	}
+	lastrule_id=-1;
       }
       else
       {
 	if(tmpword.size() != 0)
 	{
+	  //vmsanchez:debug
+	  if(trace)
+	  {
+	    cerr << "printing tmpword[0]" <<endl;
+	  }
+	  
 	  pair<wstring, int> tr;
 	  if(useBilingual && preBilingual == false)
 	  {
@@ -1950,25 +2069,34 @@ Transfer::transfer(FILE *in, FILE *out)
 	      fputws_unlocked(L"$}$", output);
             }
 	  }
+	  banned_rules.clear();
 	  tmpword.clear();
 	  input_buffer.setPos(last);
-	  input_buffer.next();       
+	  input_buffer.next();
+	  prev_last=last;
 	  last = input_buffer.getPos();
 	  ms.init(me->getInitial());
 	}
 	else if(tmpblank.size() != 0)
 	{
+	  //vmsanchez:debug
+	  if(trace)
+	  {
+	    cerr << "printing tmpblank[0]" <<endl;
+	  }
 	  fputws_unlocked(tmpblank[0]->c_str(), output);
 	  tmpblank.clear();
+	  prev_last=last;
 	  last = input_buffer.getPos();
 	  ms.init(me->getInitial());
 	}
       }
     }
-    int val = ms.classifyFinals(me->getFinals());
+    int val = ms.classifyFinals(me->getFinals(),banned_rules);
     if(val != -1)
     {
-      lastrule = rule_map[val-1];      
+      lastrule = rule_map[val-1];
+      lastrule_id=val;
       last = input_buffer.getPos();
 
       if(trace)
@@ -2020,9 +2148,10 @@ Transfer::transfer(FILE *in, FILE *out)
   }
 }
 
-void
+int
 Transfer::applyRule()
 {
+  int words_to_consume;
   unsigned int limit = tmpword.size();
   //wcerr << L"applyRule: " << tmpword.size() << endl;
   
@@ -2108,7 +2237,7 @@ Transfer::applyRule()
 			       UtfConverter::toUtf8(tr.first), tr.second);
   }
 
-  processRule(lastrule);
+  words_to_consume=processRule(lastrule);
   lastrule = NULL;
 
   if(word)
@@ -2132,6 +2261,7 @@ Transfer::applyRule()
   tmpword.clear();
   tmpblank.clear();
   ms.init(me->getInitial());
+  return words_to_consume;
 }
 
 /* HERE */
