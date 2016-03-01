@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Universitat d'Alacant / Universidad de Alicante
+ * Copyright (C) 2005--2015 Universitat d'Alacant / Universidad de Alicante
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/transfer.h>
 #include <apertium/trx_reader.h>
@@ -22,6 +20,7 @@
 #include <apertium/string_utils.h>
 #include <lttoolbox/compression.h>
 #include <lttoolbox/xml_parse_util.h>
+#include <pcre.h>
 
 #include <cctype>
 #include <iostream>
@@ -30,11 +29,6 @@
 
 using namespace Apertium;
 using namespace std;
-
-void
-Transfer::copy(Transfer const &o)
-{
-}
 
 void
 Transfer::destroy()
@@ -51,7 +45,15 @@ Transfer::destroy()
   }
 }
 
-Transfer::Transfer()
+Transfer::Transfer() :
+word(0),
+blank(0),
+lword(0),
+lblank(0),
+output(0),
+any_char(0),
+any_tag(0),
+nwords(0)
 {
   me = NULL;
   doc = NULL;
@@ -71,22 +73,6 @@ Transfer::Transfer()
 Transfer::~Transfer()
 {
   destroy();
-}
-
-Transfer::Transfer(Transfer const &o)
-{
-  copy(o);
-}
-
-Transfer &
-Transfer::operator =(Transfer const &o)
-{
-  if(this != &o)
-  {
-    destroy();
-    copy(o);
-  }
-  return *this;
 }
 
 void
@@ -111,10 +97,15 @@ Transfer::readData(FILE *in)
   me = new MatchExe(t, finals);
 
   // attr_items
+  bool recompile_attrs = Compression::string_read(in) != string(pcre_version());
   for(int i = 0, limit = Compression::multibyte_read(in); i != limit; i++)
   {
     string const cad_k = UtfConverter::toUtf8(Compression::wstring_read(in));
     attr_items[cad_k].read(in);
+    wstring fallback = Compression::wstring_read(in);
+    if(recompile_attrs) {
+      attr_items[cad_k].compile(UtfConverter::toUtf8(fallback));
+    }
   }
 
   // variables
@@ -937,7 +928,7 @@ Transfer::processLet(xmlNode *localroot)
         return;
     }
   }
-  if(!xmlStrcmp(leftSide->name, (const xmlChar *) "var"))
+  if(leftSide->name != NULL && !xmlStrcmp(leftSide->name, (const xmlChar *) "var"))
   {
     string const val = (const char *) leftSide->properties->children->content;
     variables[val] = evalString(rightSide);
@@ -1032,7 +1023,7 @@ Transfer::processModifyCase(xmlNode *localroot)
     }
   }
 
-  if(!xmlStrcmp(leftSide->name, (const xmlChar *) "clip"))
+  if(leftSide->name != NULL && !xmlStrcmp(leftSide->name, (const xmlChar *) "clip"))
   {
     int pos = 0;
     xmlChar *part = NULL, *side = NULL, *as = NULL;
@@ -1062,6 +1053,7 @@ Transfer::processModifyCase(xmlNode *localroot)
       else if(!xmlStrcmp(i->name, (const xmlChar *) "link-to"))
       {
         as = i->children->content;
+        (void)as; // ToDo, remove "as" and the whole else?
       }
     }
     if(!xmlStrcmp(side, (const xmlChar *) "sl"))
@@ -1100,6 +1092,8 @@ Transfer::processCallMacro(xmlNode *localroot)
       break;
     }
   }
+  
+  // ToDo: Is it at all valid if npar <= 0 ?
 
   TransferWord **myword = NULL;
   if(npar > 0)
@@ -1115,7 +1109,7 @@ Transfer::processCallMacro(xmlNode *localroot)
 
   int idx = 0;
   int lastpos = 0;
-  for(xmlNode *i = localroot->children; i != NULL; i = i->next)
+  for(xmlNode *i = localroot->children; npar && i != NULL; i = i->next)
   {
     if(i->type == XML_ELEMENT_NODE)
     {
@@ -1145,15 +1139,9 @@ Transfer::processCallMacro(xmlNode *localroot)
   swap(myword, word);
   swap(myblank, blank);
   swap(npar, lword);
-
-  if(myword)
-  {
-    delete[] myword;
-  }
-  if(myblank)
-  {
-    delete[] myblank;
-  }
+  
+  delete[] myword;
+  delete[] myblank;
 }
 
 int
@@ -1833,6 +1821,10 @@ Transfer::readToken(FILE *in)
     else if(val == L'^')
     {
       return input_buffer.add(TransferToken(content, tt_blank));
+    }
+    else if(val == L'\0' && null_flush)
+    {
+      fflush(output);
     }
     else
     {

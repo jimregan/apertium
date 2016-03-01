@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Universitat d'Alacant / Universidad de Alicante
+ * Copyright (C) 2005--2015 Universitat d'Alacant / Universidad de Alicante
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/transfer_mult.h>
 #include <apertium/trx_reader.h>
@@ -30,11 +28,6 @@
 using namespace std;
 
 void
-TransferMult::copy(TransferMult const &o)
-{
-}
-
-void
 TransferMult::destroy()
 {
   if(me)
@@ -44,7 +37,13 @@ TransferMult::destroy()
   }
 }
 
-TransferMult::TransferMult()
+TransferMult::TransferMult() :
+word(0),
+blank(0),
+output(0),
+any_char(0),
+any_tag(0),
+nwords(0)
 {
   me = NULL;
   isRule = false;
@@ -55,22 +54,6 @@ TransferMult::TransferMult()
 TransferMult::~TransferMult()
 {
   destroy();
-}
-
-TransferMult::TransferMult(TransferMult const &o)
-{
-  copy(o);
-}
-
-TransferMult &
-TransferMult::operator =(TransferMult const &o)
-{
-  if(this != &o)
-  {
-    destroy();
-    copy(o);
-  }
-  return *this;
 }
 
 string
@@ -107,10 +90,15 @@ TransferMult::readData(FILE *in)
   me = new MatchExe(t, finals);
  
   // attr_items
+  bool recompile_attrs = Compression::string_read(in) != string(pcre_version());
   for(int i = 0, limit = Compression::multibyte_read(in); i != limit; i++)
   {
     string const cad_k = UtfConverter::toUtf8(Compression::wstring_read(in));
     attr_items[cad_k].read(in);
+    wstring fallback = Compression::wstring_read(in);
+    if(recompile_attrs) {
+      attr_items[cad_k].compile(UtfConverter::toUtf8(fallback));
+    }
   }
 
   // variables

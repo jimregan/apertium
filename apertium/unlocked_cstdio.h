@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef _APERTIUM_UNLOCKED_CSTDIO_
@@ -52,6 +50,12 @@
 
 #if !HAVE_DECL_FPUTWS_UNLOCKED
 #define fputws_unlocked fputws
+#endif
+
+#if !HAVE_MBTOWC
+#include <cwchar>
+inline int wctomb(char *s, wchar_t wc) { return wcrtomb(s,wc,NULL); }
+inline int mbtowc(wchar_t *pwc, const char *s, size_t n) { return mbrtowc(pwc, s, n, NULL); }
 #endif
 
 #endif

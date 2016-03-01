@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef _TRXREADER_
 #define _TRXREADER_
@@ -48,7 +46,6 @@ private:
   wstring attrib(wstring const &name);
 
   void parseError(wstring const &message);
-  void copy(TRXReader const &o);
   void destroy();
   void clearTagIndex();
   
@@ -78,8 +75,6 @@ public:
 
   TRXReader();
   ~TRXReader();
-  TRXReader(TRXReader const &o);
-  TRXReader & operator =(TRXReader const &o);
 
   void read(string const &filename);
   void write(string const &filename);

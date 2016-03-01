@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2006 Felipe Sánchez-Martínez
+ * Copyright (C) 2004-2006 Felipe SÃ¡nchez-MartÃ­nez
  * Copyright (C) 2006 Universitat d'Alacant
  *
  * This program is free software; you can redistribute it and/or
@@ -13,9 +13,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -30,6 +28,7 @@
 #include <apertium/utf_converter.h>
 #include <apertium/morpho_stream.h>
 #include <apertium/tsx_reader.h>
+#include <apertium/tagger_data_hmm.h>
 #include <lttoolbox/lt_locale.h>
 #include <iostream>
 
@@ -40,7 +39,7 @@
 using namespace std;
 
 //Global vars
-TaggerData tagger_data;
+TaggerDataHMM tagger_data_hmm;
 bool check_ambclasses;
 
 void check_file(FILE *f, const string& path) {
@@ -51,7 +50,7 @@ void check_file(FILE *f, const string& path) {
 }
 
 void readwords (FILE *is, int corpus_length) {
-  MorphoStream lexmorfo(is, true, &tagger_data);
+  MorphoStream lexmorfo(is, true, &tagger_data_hmm);
   TaggerWord *word=NULL;
   int nwords=0;
 
@@ -62,9 +61,9 @@ void readwords (FILE *is, int corpus_length) {
     cout<<UtfConverter::toUtf8(word->get_superficial_form())<<" "<<UtfConverter::toUtf8(word->get_string_tags())<<"\n";
 
     if (check_ambclasses) {
-      int k=tagger_data.getOutput()[word->get_tags()];
-    
-      if ((k>=tagger_data.getM())||(k<0)) {
+      int k=tagger_data_hmm.getOutput()[word->get_tags()];
+
+      if ((k>=tagger_data_hmm.getM())||(k<0)) {
 	cerr<<"Error: Ambiguity class number out of range: "<<k<<"\n";
 	cerr<<"Word: "<<UtfConverter::toUtf8(word->get_superficial_form())<<"\n";
 	cerr<<"Ambiguity class: "<<UtfConverter::toUtf8(word->get_string_tags())<<"\n";
@@ -99,7 +98,9 @@ int main(int argc, char* argv[]) {
   int corpus_length=-1;
 
   int c;
+#if HAVE_GETOPT_LONG
   int option_index=0;
+#endif
 
   cerr<<"LOCALE: "<<setlocale(LC_ALL,"")<<"\n";
 
@@ -109,6 +110,7 @@ int main(int argc, char* argv[]) {
   cerr<<"\n";
 
   while (true) {
+#if HAVE_GETOPT_LONG
     static struct option long_options[] =
       {
 	{"tsxfile",  required_argument, 0, 'x'},
@@ -120,11 +122,14 @@ int main(int argc, char* argv[]) {
       };
 
     c=getopt_long(argc, argv, "x:p:l:hv",long_options, &option_index);
+#else
+    int c=getopt(argc, argv, "x:p:l:hv");
+#endif
     if (c==-1)
       break;
-      
+
     switch (c) {
-    case 'l': 
+    case 'l':
       corpus_length=atoi(optarg);
       if(corpus_length<=0) {
 	cerr<<"Error: corpus length provided with --clength must be a positive integer\n";
@@ -132,20 +137,20 @@ int main(int argc, char* argv[]) {
 	exit(EXIT_FAILURE);
       }
       break;
-    case 'x': 
+    case 'x':
       tsxfile=optarg;
       break;
     case 'p':
       probfile=optarg;
       break;
-    case 'h': 
+    case 'h':
       help(argv[0]);
       exit(EXIT_SUCCESS);
       break;
     case 'v':
       cerr<<"apertium-tagger-readwords\n";
       cerr<<"LICENSE:\n\n"
-	  <<"   Copyright (C) 2006 Felipe Sánchez Martínez\n\n"
+	  <<"   Copyright (C) 2006 Felipe SÃ¡nchez MartÃ­nez\n\n"
 	  <<"   This program is free software; you can redistribute it and/or\n"
 	  <<"   modify it under the terms of the GNU General Public License as\n"
 	  <<"   published by the Free Software Foundation; either version 2 of the\n"
@@ -156,11 +161,9 @@ int main(int argc, char* argv[]) {
 	  <<"   General Public License for more details.\n"
 	  <<"\n"
 	  <<"   You should have received a copy of the GNU General Public License\n"
-	  <<"   along with this program; if not, write to the Free Software\n"
-	  <<"   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA\n"
-	  <<"   02111-1307, USA.\n";
+	  <<"   along with this program; if not, see <http://www.gnu.org/licenses/>.\n";
       exit(EXIT_SUCCESS);
-      break;    
+      break;
     default:
       help(argv[0]);
       exit(EXIT_FAILURE);
@@ -184,7 +187,7 @@ int main(int argc, char* argv[]) {
     cerr<<"Reading tagger specification from file '"<<tsxfile<<"' ..."<<flush;
     TSXReader treader;
     treader.read(tsxfile);
-    tagger_data=treader.getTaggerData();
+    tagger_data_hmm=treader.getTaggerData();
     cerr<<"done.\n";
     check_ambclasses=false;
   }
@@ -194,13 +197,13 @@ int main(int argc, char* argv[]) {
     FILE* fin=NULL;
     fin=fopen(probfile.c_str(), "r");
     check_file(fin, probfile);
-    tagger_data.read(fin);
+    tagger_data_hmm.read(fin);
     cerr<<"done.\n";
     fclose(fin);
     check_ambclasses=true;
   }
 
-  TaggerWord::setArrayTags(tagger_data.getArrayTags());
+  TaggerWord::setArrayTags(tagger_data_hmm.getArrayTags());
 
   readwords(stdin, corpus_length);
 }

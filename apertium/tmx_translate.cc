@@ -6,6 +6,8 @@
 *                                                                        *
 *  Developed by Daniel Varga.                                            *
 *                                                                        *
+*  From hunalign; for license see ../AUTHORS and ../COPYING.hunalign     *
+*                                                                        *
 *************************************************************************/
 #include <apertium/tmx_translate.h>
 
@@ -173,12 +175,12 @@ void trivialTranslate(
 {
   bool logging = false;
 
-  std::ofstream* translateLogsPtr;
+  std::ofstream* translateLogsPtr = 0;
   if (logging)
   {
     translateLogsPtr = new std::ofstream( "/dev/null", std::ios::app );
   }
-  std::ostream& logs = *translateLogsPtr ; // std::cout;
+  std::ostream& logs = translateLogsPtr ? *translateLogsPtr : std::cout ;
 
   translatedSentence.id = sentence.id;
   Phrase& words = translatedSentence.words;

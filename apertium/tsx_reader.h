@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef _TSXREADER_
 #define _TSXREADER_
@@ -64,7 +62,6 @@ private:
   void procLabelSequence();
   void procEnforce();
   void procPreferences();
-  void copy(TSXReader const &o);
   void destroy();
   void clearTagIndex();
 
@@ -72,12 +69,14 @@ private:
 public:
   TSXReader();
   ~TSXReader();
-  TSXReader(TSXReader const &o);
-  TSXReader & operator =(TSXReader const &o);
 
   void read(string const &filename);
-  void write(string const &filename);
   TaggerData & getTaggerData();
+
+private:
+  void copy(TSXReader const &o);
+  TSXReader(TSXReader const &o);
+  TSXReader & operator =(TSXReader const &o);
 };
 
 #endif

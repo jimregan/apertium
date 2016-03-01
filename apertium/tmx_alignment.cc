@@ -6,6 +6,8 @@
 *                                                                        *
 *  Developed by Daniel Varga.                                            *
 *                                                                        *
+*  From hunalign; for license see ../AUTHORS and ../COPYING.hunalign     *
+*                                                                        *
 *************************************************************************/
 #include <apertium/tmx_alignment.h>
 
@@ -432,7 +434,7 @@ void setBox( AlignMatrix& m, int huPos, int enPos, int radius, int insideOfRadiu
     {
       if ( (x>=0) && (x<m.size()) && (y>=0) && (y<m.otherSize()) )
       {
-        m.cell(x,y) = insideOfRadiusValue ;
+        m.cell(x,y) = insideOfRadiusValue ; // ToDo: Should this be (y,x) instead? Function has args y,x not x,y. Fix here or function
       }
     }
   }

@@ -12,14 +12,13 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/tsx_reader.h>
 #include <lttoolbox/compression.h>
 #include <lttoolbox/lt_locale.h>
 #include <apertium/hmm.h>
+#include <apertium/tagger_data_hmm.h>
 #include <apertium/tagger_word.h>
 #include <apertium/string_utils.h>
 
@@ -90,8 +89,9 @@ int main(int argc, char *argv[])
   reader.read(argv[1]);
 
   TaggerWord::setArrayTags(reader.getTaggerData().getArrayTags());
-  
-  HMM hmm(&(reader.getTaggerData()));
+
+  TaggerDataHMM tdhmm(reader.getTaggerData());  
+  HMM hmm(&tdhmm);
   hmm.filter_ambiguity_classes(input, output);
   
   return EXIT_SUCCESS;  

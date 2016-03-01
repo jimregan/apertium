@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef _TAGGERDATA_
 #define _TAGGERDATA_
@@ -34,7 +32,7 @@ using namespace std;
 
 class TaggerData
 {
-private:
+protected:
   set<TTag> open_class;
   vector<TForbidRule> forbid_rules;
   map<wstring, TTag, Ltstr> tag_index;
@@ -43,16 +41,11 @@ private:
   vector<wstring> prefer_rules;
   ConstantManager constants;
   Collection output;
-  int N;
-  int M;
-  double **a;
-  double **b;
   PatternList plist;
 
   vector<wstring> discard;
   
   void copy(TaggerData const &o);
-  void destroy();
 public:
   TaggerData();
   virtual ~TaggerData();
@@ -86,19 +79,9 @@ public:
   virtual Collection & getOutput();
   void setOutput(Collection const &c);
  
-  void setProbabilities(int const myN, int const myM, 
-                        double **myA = NULL, double **myB = NULL);
-  virtual double ** getA();
-  virtual double ** getB();
-  virtual int getN();
-  virtual int getM();
-  
   void setPatternList(PatternList const &pl);
   void addDiscard(wstring const &tags);
   PatternList & getPatternList();
-  
-  void read(FILE *in);
-  void write(FILE *out);
 };
 
 #endif

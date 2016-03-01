@@ -13,9 +13,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <fstream>
@@ -26,7 +24,7 @@
 #include <getopt.h>
 
 #include <apertium/hmm.h>
-#include <apertium/tagger_data.h>
+#include <apertium/tagger_data_hmm.h>
 #include <apertium/tsx_reader.h>
 #include <apertium/string_utils.h>
 
@@ -35,7 +33,7 @@ using namespace Apertium;
 using namespace std;
 
 //Global vars
-TaggerData tagger_data;
+TaggerDataHMM tagger_data_hmm;
 TTag eos; //End-of-sentence tag
 
 void check_file(FILE *f, const string& path) {
@@ -46,15 +44,15 @@ void check_file(FILE *f, const string& path) {
 }
 
 void help(char *name) {
-  cerr<<"Forbid and enforce rules are applied to the given HMM paramters\n\n";
+  cerr<<"Forbid and enforce rules are applied to the given HMM parameters\n\n";
   cerr<<"USAGE:\n";
   cerr<<name<<" --filein filein.prob --fileout fileout.prob --tsxfile file.tsx\n\n";
 
   cerr<<"ARGUMENTS: \n"
       <<"   --filein|-i: To specify the file with the HMM parameter to process\n\n"
-      <<"   --fileout|-o: To specify the file to which the HMM will be writen\n\n"
+      <<"   --fileout|-o: To specify the file to which the HMM will be written\n\n"
       <<"   --tsxfile|-x: File containing the rules to apply\n\n"
-      <<"NOTE: Parameters are read from and writen to the files provided\n";
+      <<"NOTE: Parameters are read from and written to the files provided\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -115,9 +113,7 @@ int main(int argc, char* argv[]) {
 	  <<"   General Public License for more details.\n"
 	  <<"\n"
 	  <<"   You should have received a copy of the GNU General Public License\n"
-	  <<"   along with this program; if not, write to the Free Software\n"
-	  <<"   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA\n"
-	  <<"   02111-1307, USA.\n";
+	  <<"   along with this program; if not, see <http://www.gnu.org/licenses/>.\n";
       exit(EXIT_SUCCESS);
       break;    
     default:
@@ -152,7 +148,7 @@ int main(int argc, char* argv[]) {
   check_file(fin, filein);
 
   cerr<<"Reading apertium-tagger data from file '"<<filein<<"' ... "<<flush;
-  tagger_data.read(fin);
+  tagger_data_hmm.read(fin);
   fclose(fin);
   cerr<<"done.\n";
 
@@ -161,17 +157,17 @@ int main(int argc, char* argv[]) {
   treader.read(filetsx);
   cerr<<"done.\n";
   
-  tagger_data.setForbidRules(treader.getTaggerData().getForbidRules());
-  tagger_data.setEnforceRules(treader.getTaggerData().getEnforceRules());
-  tagger_data.setPreferRules(treader.getTaggerData().getPreferRules());
+  tagger_data_hmm.setForbidRules(treader.getTaggerData().getForbidRules());
+  tagger_data_hmm.setEnforceRules(treader.getTaggerData().getEnforceRules());
+  tagger_data_hmm.setPreferRules(treader.getTaggerData().getPreferRules());
 
-  HMM hmm(&tagger_data);
+  HMM hmm(&tagger_data_hmm);
   hmm.apply_rules();
 
   fout=fopen(fileout.c_str(), "wb");
   check_file(fout, fileout);
   cerr<<"Writing apertium-tagger data to file '"<<fileout<<"' ... "<<flush;
-  tagger_data.write(fout);
+  hmm.serialise(fout);
   fclose(fout);
   cerr<<"done.\n";
 }

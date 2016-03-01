@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/tagger_word.h>
 #include <apertium/utf_converter.h>
@@ -32,7 +30,9 @@ bool TaggerWord::show_ignored_string=true;
 
 map<wstring, ApertiumRE, Ltstr> TaggerWord::patterns;
 
-TaggerWord::TaggerWord(bool prev_plus_cut){
+TaggerWord::TaggerWord(bool prev_plus_cut) :
+show_sf(false)
+{
    ignored_string = L"";
    plus_cut=false;
    previous_plus_cut=prev_plus_cut;
@@ -135,7 +135,7 @@ TaggerWord::isAmbiguous() const
 wstring
 TaggerWord::get_string_tags() {
   wstring st;
-  set<TTag>::iterator itag;
+  set<TTag>::iterator itag = tags.begin();
   
   st=L"{";  
   for(itag=tags.begin(); itag!=tags.end(); itag++) {

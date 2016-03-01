@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Universitat d'Alacant / Universidad de Alicante
+ * Copyright (C) 2005--2015 Universitat d'Alacant / Universidad de Alicante
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/interchunk.h>
 #include <apertium/trx_reader.h>
@@ -34,18 +32,11 @@ using namespace Apertium;
 using namespace std;
 
 void
-Interchunk::copy(Interchunk const &o)
-{
-}
-
-void
 Interchunk::destroy()
 {
-  if(me)
-  {
-    delete me;
-    me = NULL;
-  }
+  delete me;
+  me = NULL;
+
   if(doc)
   {
     xmlFreeDoc(doc);
@@ -53,7 +44,15 @@ Interchunk::destroy()
   }  
 }
 
-Interchunk::Interchunk()
+Interchunk::Interchunk() :
+word(0),
+blank(0),
+lword(0),
+lblank(0),
+output(0),
+any_char(0),
+any_tag(0),
+nwords(0)
 {
   me = NULL;
   doc = NULL;
@@ -63,27 +62,12 @@ Interchunk::Interchunk()
   null_flush = false;
   internal_null_flush = false;
   trace = false;
+  emptyblank = "";
 }
 
 Interchunk::~Interchunk()
 {
   destroy();
-}
-
-Interchunk::Interchunk(Interchunk const &o)
-{
-  copy(o);
-}
-
-Interchunk &
-Interchunk::operator =(Interchunk const &o)
-{
-  if(this != &o)
-  {
-    destroy();
-    copy(o);
-  }
-  return *this;
 }
 
 void 
@@ -108,10 +92,15 @@ Interchunk::readData(FILE *in)
   me = new MatchExe(t, finals);
  
   // attr_items
+  bool recompile_attrs = Compression::string_read(in) != string(pcre_version());
   for(int i = 0, limit = Compression::multibyte_read(in); i != limit; i++)
   {
     string const cad_k = UtfConverter::toUtf8(Compression::wstring_read(in));
     attr_items[cad_k].read(in);
+    wstring fallback = Compression::wstring_read(in);
+    if(recompile_attrs) {
+      attr_items[cad_k].compile(UtfConverter::toUtf8(fallback));
+    }
   }
 
   // variables
@@ -235,6 +224,11 @@ Interchunk::checkIndex(xmlNode *element, int index, int limit)
 string 
 Interchunk::evalString(xmlNode *element)
 {
+  if (element == 0)
+  {
+    throw "Interchunk::evalString() was passed a NULL element";
+  }
+
   map<xmlNode *, TransferInstr>::iterator it;
   it = evalStringCache.find(element);
   if(it != evalStringCache.end())
@@ -579,7 +573,7 @@ Interchunk::processModifyCase(xmlNode *localroot)
     }
   }
 
-  if(!xmlStrcmp(leftSide->name, (const xmlChar *) "clip"))
+  if(leftSide->name != NULL && !xmlStrcmp(leftSide->name, (const xmlChar *) "clip"))
   {
     int pos = 0;
     xmlChar *part = NULL;
@@ -624,20 +618,23 @@ Interchunk::processCallMacro(xmlNode *localroot)
     }
   }
 
+  // ToDo: Is it at all valid if npar <= 0 ?
+
   InterchunkWord **myword = NULL;
   if(npar > 0)
   {
-    myword = new InterchunkWord *[npar];  
+    myword = new InterchunkWord *[npar];
   }
   string **myblank = NULL;
-  if(npar > 1)
+  if(npar > 0)
   {
-    myblank = new string *[npar - 1];
+    myblank = new string *[npar];
+    myblank[npar-1] = &emptyblank;
   }
 
   int idx = 0;
   int lastpos = 0;
-  for(xmlNode *i = localroot->children; i != NULL; i = i->next)
+  for(xmlNode *i = localroot->children; npar && i != NULL; i = i->next)
   {
     if(i->type == XML_ELEMENT_NODE)
     {
@@ -655,7 +652,7 @@ Interchunk::processCallMacro(xmlNode *localroot)
   swap(myword, word);
   swap(myblank, blank);
   swap(npar, lword);
-  
+
   for(xmlNode *i = macro->children; i != NULL; i = i->next)
   {
     if(i->type == XML_ELEMENT_NODE)
@@ -668,14 +665,8 @@ Interchunk::processCallMacro(xmlNode *localroot)
   swap(myblank, blank);
   swap(npar, lword);
 
-  if(myword)
-  {
-    delete[] myword;
-  }
-  if(myblank)
-  {
-    delete[] myblank;
-  }
+  delete[] myword;
+  delete[] myblank;
 }
 
 void

@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 /**
  *  First order hidden Markov model (HMM) implementation (header)
@@ -24,6 +22,8 @@
 
 #ifndef __HMM_H
 #define __HMM_H
+
+#include "file_tagger.h"
 
 #include <cstdio>
 #include <fstream>
@@ -38,7 +38,7 @@
 #include <apertium/collection.h>
 #include <apertium/constant_manager.h>
 #include <apertium/morpho_stream.h>
-#include <apertium/tagger_data.h>
+#include <apertium/tagger_data_hmm.h>
 #include <apertium/tagger_utils.h>
 #include <apertium/tagger_word.h>
 
@@ -49,13 +49,10 @@ using namespace std;
 /** HMM
  *  first-order hidden Markov Model
  */
-class HMM {
+class HMM : public Apertium::FILE_Tagger {
 private:
-   TaggerData *td;
+   TaggerDataHMM tdhmm;
    TTag eos; // end-of-sentence tag
-   bool debug;  //If true, print error messages when tagging input text
-   bool show_sf;  //If true, print superficial forms when tagging input text
-   bool null_flush; // If true, flush on '\0'
    
    /** It allocs memory for the transition (a) and the emission (b) matrices.
     *  Before calling this method the number of ambiguity classes must be known.
@@ -74,10 +71,21 @@ private:
    set<TTag> find_similar_ambiguity_class(set<TTag> c);
    
 public:  
+   void deserialise(FILE *Serialised_FILE_Tagger);
+   std::vector<std::wstring> &getArrayTags();
+   void train(FILE *Corpus, unsigned long Count);
+   void serialise(FILE *Stream_);
+   void deserialise(const TaggerData &Deserialised_FILE_Tagger);
+   void init_probabilities_from_tagged_text_(FILE *TaggedCorpus,
+                                            FILE *UntaggedCorpus);
+   void init_probabilities_kupiec_(FILE *Corpus);
+   void train_(FILE *Corpus, unsigned long Count);
+   HMM();
+   HMM(TaggerDataHMM *tdhmm);
  
    /** Constructor
     */
-   HMM(TaggerData *t);
+   HMM(TaggerDataHMM tdhmm);
 
    /** Destructor
     */
@@ -87,21 +95,6 @@ public:
     *  @param t the end-of-sentence tag
     */
    void set_eos(TTag t);
-   
-   /** Used to set the debug flag
-    *
-    */
-   void set_debug(bool d);
-
-   /** Used to set the show superficial forms flag 
-    *
-    */
-   void set_show_sf(bool sf);
-
-   /**
-    * Used to set the null_flush flag 
-    */
-   void setNullFlush(bool nf);
 
    /** It reads the ambiguity classes from the stream received as
     *  input
@@ -162,9 +155,8 @@ public:
     *  @param in the input stream with the untagged text to tag
     *  @param out the output stream with the tagged text
     */
-   void tagger (FILE *in, FILE *out, bool show_all_good_first=false);
+   void tagger(FILE *Input, FILE *Output, const bool &First = false);
 
-        
    /** Prints the A matrix.
     */
    void print_A();
