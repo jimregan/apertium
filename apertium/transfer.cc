@@ -1896,8 +1896,7 @@ Transfer::transfer(FILE *in, FILE *out)
 
   while(true)
   {
-    //vmsanchez:debug
-    if(trace)
+    if(trace_att)
     {
       cerr << "Loop start " << endl;
       cerr << "ms.size: " << ms.size() << endl;
