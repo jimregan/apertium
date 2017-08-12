@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
       {"from-bilingual",      no_argument, 0, 'b'},
       {"no-bilingual",      no_argument, 0, 'n'},
       {"extended",      required_argument, 0, 'x'},
-      {"transfer-weihts",      required_argument, 0, 'w'},
+      {"transfer-weights",      required_argument, 0, 'w'},
       {"case-sensitive", no_argument, 0, 'c'},
       {"null-flush", no_argument, 0, 'z'},
       {"trace", no_argument, 0, 't'},
