@@ -26,6 +26,7 @@
 #include <iostream>
 #include <stack>
 #include <cerrno>
+#include <cstdlib>
 
 #ifdef _WIN32
 #include <utf8_fwrap.hpp>
@@ -80,9 +81,332 @@ Transfer::~Transfer()
 }
 
 void
+Transfer::read(string const &transferfile, string const &datafile,
+               string const &weightsfile, string const &fstfile)
+{ 
+  // read and parse .t*x xml file with transfer rules //tc
+  readTransfer(transferfile);
+
+  // open precompiled .t*x.bin binary file and read data from it //tc
+  FILE *in = fopen(datafile.c_str(), "rb");
+  if(!in)
+  {
+    cerr << "Error: Could not open file '" << datafile << "'." << endl;
+    exit(EXIT_FAILURE);
+  }
+  readData(in);
+  fclose(in);
+
+  // read data from w*x xml file with transfer weights if specified //tc
+  if(weightsfile != "")
+  {
+    readTransferWeights(weightsfile);
+  }
+
+  // read data from bilingual letter transducer file if specified //tc
+  if(fstfile != "")
+  {
+    readBil(fstfile);
+  }
+}
+
+void
+Transfer::readTransfer(string const &in)
+{
+  doc = xmlReadFile(in.c_str(), NULL, 0);
+  if(doc == NULL)
+  {
+    cerr << "Error: Could not parse file '" << in << "'." << endl;
+    exit(EXIT_FAILURE);
+  }
+
+  root_element = xmlDocGetRootElement(doc);
+
+  // search through attributes of root element //tc
+  for(xmlAttr *i = root_element->properties; i != NULL; i = i->next)
+  { 
+    // check for 'default' attribute //tc
+    if(!xmlStrcmp(i->name, (const xmlChar *) "default"))
+    {
+      // assuming either default="chunk" or something else //tc
+      if(!xmlStrcmp(i->children->content, (const xmlChar *) "chunk"))
+      {
+        // if default is "chunk", set it to chunk //tc
+        defaultAttrs = chunk; // default value for 'chunk'
+      }
+      else
+      { 
+        // if default is not "chunk", set it to default //tc
+        defaultAttrs = lu; // default value for 'default'
+      }
+    }
+  }
+
+  // search through children nodes of root node for macros and rules //tc
+  for(xmlNode *i = root_element->children; i != NULL; i = i->next)
+  {
+    if(i->type == XML_ELEMENT_NODE)
+    {
+      if(!xmlStrcmp(i->name, (const xmlChar *) "section-def-macros"))
+      {
+        collectMacros(i);
+      }
+      else if(!xmlStrcmp(i->name, (const xmlChar *) "section-rules"))
+      {
+        collectRules(i);
+      }
+    }
+  }
+}
+
+void
+Transfer::collectRules(xmlNode *localroot)
+{ 
+  // counting rule numbers; in fact, rules are indexed from 1 //tc
+  int rule_index = 0;
+  string rule_id = "";
+  // fictive zero position element to not bother with i-1 thing //tc
+  rule_ids.push_back("");
+  // a uniformed answer to all empty string ids //tc
+  rule_id_map[""] = 0;
+
+  // go through subelements of 'section-rules' //tc
+  for(xmlNode *i = localroot->children; i != NULL; i = i->next)
+  {
+    // go through 'rule' elements //tc
+    if(i->type == XML_ELEMENT_NODE && !xmlStrcmp(i->name, (const xmlChar *) "rule"))
+    {
+      rule_index++;
+
+      // we only need to collect ids if weights are used //tc
+      if (useWeights)
+      {
+        // get rule id and add it to rule_ids //tc
+        rule_id = getRuleId(i);
+        if (rule_id != "")
+        {
+          rule_id_map[rule_id] = rule_index;
+        }
+        rule_ids.push_back(rule_id);
+        rule_id = "";
+      }
+
+      // go through subelements of current 'rule' element looking for some action //tc
+      for(xmlNode *j = i->children; ; j = j->next)
+      {
+        // check if subelement is 'action' element //tc
+        if(j->type == XML_ELEMENT_NODE && !xmlStrcmp(j->name, (const xmlChar *) "action"))
+        {
+          // if so, add it at the end of the rule map //tc
+          rule_map.push_back(j);
+          break;
+        }
+      }
+    }
+  }
+}
+
+void
+Transfer::collectMacros(xmlNode *localroot)
+{ 
+  // go through subelements of 'section-macros' //tc
+  for(xmlNode *i = localroot->children; i != NULL; i = i->next)
+  {
+    if(i->type == XML_ELEMENT_NODE)
+    {
+      // and add all subelements, normally 'def-macros' nodes //tc
+      macro_map.push_back(i);
+    }
+  }
+}
+
+void
+Transfer::readTransferWeights(string const &in)
+{
+  int rule_group_index = 0;
+  double weight = 0.;
+  string lemma = "";
+  string tags = "";
+  string rule_id = "";
+  int current_pattern_length = 0;
+  int current_pattern_lemmatized_length = 0;
+  string current_pattern_lemma_signature = "";
+  string current_pattern = "";
+  genpatternmap weighted_pattern_rule_group;
+  // to track all rules in one group //tc
+  vector<string> current_rule_group;
+  // a uniformed answer to all empty rule_group ids //tc
+  rule_group_map[""] = -1;
+
+  doc = xmlReadFile(in.c_str(), NULL, 0);
+  if(doc == NULL)
+  {
+    cerr << "Error: Could not parse file '" << in << "'." << endl;
+    exit(EXIT_FAILURE);
+  }
+
+  root_element = xmlDocGetRootElement(doc);
+
+  // search through children nodes of the root for 'rule-group' elements //tc
+  for(xmlNode *i = root_element->children; i != NULL; i = i->next)
+  {
+    if(i->type == XML_ELEMENT_NODE && !xmlStrcmp(i->name, (const xmlChar *) "rule-group"))
+    {
+      cerr << "Collecting rule group # " << rule_group_index << endl; //di
+      // get ids of all rules in rule group //tc
+      for(xmlNode *j = i->children; j != NULL; j = j->next)
+      {
+        if(j->type == XML_ELEMENT_NODE && !xmlStrcmp(j->name, (const xmlChar *) "rule"))
+        {
+          // get id and store it //tc
+          rule_id = getRuleId(j);
+          current_rule_group.push_back(rule_id);
+          rule_group_map[rule_id] = rule_group_index;
+          cerr << "Rule id: " << rule_id << endl; //di
+
+          // get patterns, parse them, and store //tc
+          for(xmlNode *k = j->children; k != NULL; k = k->next)
+          {
+            if(k->type == XML_ELEMENT_NODE && !xmlStrcmp(k->name, (const xmlChar *) "pattern"))
+            {
+              current_pattern_length = 0;
+              current_pattern_lemmatized_length = 0;
+              current_pattern_lemma_signature = "";
+              weight = atof(getNodeAttr(k, "weight").c_str());
+
+              for(xmlNode *patit = k->children; patit != NULL; patit = patit->next)
+              {
+                if(patit->type == XML_ELEMENT_NODE && !xmlStrcmp(patit->name, (const xmlChar *) "pattern-item"))
+                {
+                  lemma = getNodeAttr(patit, "lemma");
+                  current_pattern = current_pattern + lemma;
+                  current_pattern_length++;
+                  if (lemma != "")
+                  {
+                    current_pattern_lemmatized_length++;
+                    current_pattern_lemma_signature = current_pattern_lemma_signature + '1';
+                  }
+                  else
+                  {
+                    current_pattern_lemma_signature = current_pattern_lemma_signature + '0';
+                  }
+
+                  tags = getNodeAttr(patit, "tags");
+                  if (tags != "")
+                  {
+                    current_pattern = current_pattern + "<";
+                    unsigned int tags_len = tags.size();
+                    char curr_char;
+                    for(unsigned int i = 0; i < tags_len; i++)
+                    {
+                      curr_char = tags[i];
+                      if (curr_char == '.')
+                      {
+                        current_pattern = current_pattern + "><";
+                      }
+                      else
+                      {
+                        current_pattern = current_pattern + curr_char;
+                      }
+                    }
+                    current_pattern = current_pattern + "> ";
+                   } 
+                }
+              }
+              cerr << "  " << weight << " " << current_pattern << endl; //di
+              weighted_pattern_rule_group[current_pattern_lemmatized_length][current_pattern_lemma_signature][current_pattern].push_back(make_pair(rule_id, weight));
+              current_pattern = "";
+            }
+          }
+        }
+      }
+      // push newly acquired current_rule_group into rule_groups //tc
+      weighted_patterns.push_back(weighted_pattern_rule_group);
+      weighted_pattern_rule_group.clear();
+      cerr << endl; //di
+      rule_groups.push_back(make_pair(current_pattern_length, current_rule_group));
+      current_rule_group.clear();
+      rule_group_index++;
+    }
+  }
+
+  // print out what was collected //di
+  cerr << "These are the rule groups you collected:" << endl; //di
+  for (unsigned int k1 = 0; k1 < rule_groups.size(); k1++) //di
+  { //di
+    cerr << "rule_groups[" << k1 << "]: " << rule_groups[k1].first << endl; //di
+    for (unsigned int k2 = 0; k2 < rule_groups[k1].second.size(); k2++) //di
+    { //di
+      cerr << "  " << rule_groups[k1].second[k2] << endl; //di
+    } //di
+    cerr << endl; //di
+  } //di
+
+
+  cerr << "And these are the patterns:" << endl; //di
+  for (unsigned int it1 = 0; it1 < weighted_patterns.size(); it1++) //di
+  { //di
+    cerr << it1 << endl; //di
+    for (genpatternmap::iterator it2 = weighted_patterns[it1].begin(); it2 != weighted_patterns[it1].end(); it2++) //di
+    { //di
+      cerr << "  " << it2->first << endl; //di
+      for (map<string, patternmap>::iterator it3 = it2->second.begin(); it3 != it2->second.end(); it3++) //di
+      { //di
+        cerr << "    " << it3->first << endl; //di
+        for (patternmap::iterator it4 = it3->second.begin(); it4 != it3->second.end(); it4++) //di
+        { //di
+          cerr << "      " << it4->first << endl; //di
+          for (unsigned int it5 = 0; it5 < (it4->second).size(); it5++) //di
+          { //di
+            cerr << "        " << (it4->second)[it5].first << ": " << (it4->second)[it5].second; //di
+          } //di
+          cerr << endl; //di
+        } //di
+        cerr << endl; //di
+      } //di
+      cerr << endl; //di
+    } //di
+    cerr << endl; //di
+  } //di
+
+}
+
+string
+Transfer::getRuleId(xmlNode *localroot)
+{
+  string rule_id = "";
+  // localroot is normally a 'rule' node //tc
+  // go through its properties looking for 'id' //tc
+  for(xmlAttr *j = localroot->properties; j != NULL; j = j->next)
+  {
+    if(!xmlStrcmp(j->name, (const xmlChar *) "id"))
+    {
+      rule_id = (const char*)xmlNodeListGetString(localroot->doc, j->children, 1);
+    }
+  }
+  return rule_id;
+}
+
+string
+Transfer::getNodeAttr(xmlNode *localroot, const char* attr_name)
+{
+  string attr_val = "";
+  // go through localroot node properties looking for attr_name //tc
+  for(xmlAttr *j = localroot->properties; j != NULL; j = j->next)
+  {
+    if(!xmlStrcmp(j->name, (const xmlChar *) attr_name))
+    { 
+      attr_val = (const char*) xmlNodeListGetString(localroot->doc, j->children, 1);
+    }
+  }
+  return attr_val;
+}
+
+void
 Transfer::readData(FILE *in)
 {
   alphabet.read(in);
+
   any_char = alphabet(TRXReader::ANY_CHAR);
   any_tag = alphabet(TRXReader::ANY_TAG);
 
@@ -146,7 +470,7 @@ Transfer::readBil(string const &fstfile)
   FILE *in = fopen(fstfile.c_str(), "rb");
   if(!in)
   {
-    wcerr << "Error: Could not open file '" << fstfile << "'." << endl;
+    cerr << "Error: Could not open file '" << fstfile << "'." << endl;
     exit(EXIT_FAILURE);
   }
   fstp.load(in);
@@ -160,7 +484,7 @@ Transfer::setExtendedDictionary(string const &fstfile)
   FILE *in = fopen(fstfile.c_str(), "rb");
   if(!in)
   {
-    wcerr << "Error: Could not open extended dictionary file '" << fstfile << "'." << endl;
+    cerr << "Error: Could not open extended dictionary file '" << fstfile << "'." << endl;
     exit(EXIT_FAILURE);
   }
   extended.load(in);
@@ -169,108 +493,9 @@ Transfer::setExtendedDictionary(string const &fstfile)
   isExtended = true;
 }
 
-void
-Transfer::read(string const &transferfile, string const &datafile,
-	       string const &fstfile)
-{
-  readTransfer(transferfile);
-
-  // datafile
-  FILE *in = fopen(datafile.c_str(), "rb");
-  if(!in)
-  {
-    wcerr << "Error: Could not open file '" << datafile << "'." << endl;
-    exit(EXIT_FAILURE);
-  }
-  readData(in);
-  fclose(in);
-
-  if(fstfile != "")
-  {
-    readBil(fstfile);
-  }
-}
-
-void
-Transfer::readTransfer(string const &in)
-{
-  doc = xmlReadFile(in.c_str(), NULL, 0);
-
-  if(doc == NULL)
-  {
-    wcerr << "Error: Could not parse file '" << in << "'." << endl;
-    exit(EXIT_FAILURE);
-  }
-
-  root_element = xmlDocGetRootElement(doc);
-
-  // search for root element attributes
-  for(xmlAttr *i = root_element->properties; i != NULL; i = i->next)
-  {
-    if(!xmlStrcmp(i->name, (const xmlChar *) "default"))
-    {
-      if(!xmlStrcmp(i->children->content, (const xmlChar *) "chunk"))
-      {
-        defaultAttrs = chunk;
-      }
-      else
-      {
-        defaultAttrs = lu; // default value for 'default'
-      }
-    }
-  }
-
-  // search for macros & rules
-  for(xmlNode *i = root_element->children; i != NULL; i = i->next)
-  {
-    if(i->type == XML_ELEMENT_NODE)
-    {
-      if(!xmlStrcmp(i->name, (const xmlChar *) "section-def-macros"))
-      {
-        collectMacros(i);
-      }
-      else if(!xmlStrcmp(i->name, (const xmlChar *) "section-rules"))
-      {
-        collectRules(i);
-      }
-    }
-  }
-}
-
-void
-Transfer::collectRules(xmlNode *localroot)
-{
-  for(xmlNode *i = localroot->children; i != NULL; i = i->next)
-  {
-    if(i->type == XML_ELEMENT_NODE)
-    {
-      for(xmlNode *j = i->children; ; j = j->next)
-      {
-        if(j->type == XML_ELEMENT_NODE && !xmlStrcmp(j->name, (const xmlChar *) "action"))
-        {
-          rule_map.push_back(j);
-          break;
-        }
-      }
-    }
-  }
-}
-
-void
-Transfer::collectMacros(xmlNode *localroot)
-{
-  for(xmlNode *i = localroot->children; i != NULL; i = i->next)
-  {
-    if(i->type == XML_ELEMENT_NODE)
-    {
-      macro_map.push_back(i);
-    }
-  }
-}
-
 bool
 Transfer::checkIndex(xmlNode *element, int index, int limit)
-{
+{ 
   if(index >= limit)
   {
     wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) << L": line " << element->line << L": index >= limit" << endl;
@@ -288,15 +513,30 @@ Transfer::checkIndex(xmlNode *element, int index, int limit)
   return true;
 }
 
-
 string
 Transfer::evalString(xmlNode *element)
 {
+  /* //tc
+    Evaluate an xml element and execute appropriate instruction.
+    Used for lowest-level action elements, such as 'clip' or 'lit-tag'.
+
+    If TransferInstr object corresponding to the element is already
+    in evalStringCache, execute that instruction,
+    if not, first add the instruction to evalStringCache,
+    then call evalString again, which will execute that instruction,
+    because it is already in evalStringCache.
+  */
+
+  // Check if the TransferInstr object corresponding to the element //tc
+  // is already in evalStringCache... //tc
   map<xmlNode *, TransferInstr>::iterator it;
-  it = evalStringCache.find(element);
+  it = evalStringCache.find(element); 
   if(it != evalStringCache.end())
-  {
+  { 
+    // ...if it is, execute the corresponding instruction... //tc
     TransferInstr &ti = it->second;
+
+    // ...depending on its type //tc
     switch(ti.getType())
     {
       case ti_clip_sl:
@@ -346,7 +586,7 @@ Transfer::evalString(xmlNode *element)
 
       case ti_lit_tag:
       case ti_lit:
-        return ti.getContent();
+        return ti.getContent(); // just output what's specified in 'v' //tc
 
       case ti_b:
         if(ti.getPos() >= 0 && checkIndex(element, ti.getPos(), lblank))
@@ -386,6 +626,12 @@ Transfer::evalString(xmlNode *element)
     return "";
   }
 
+  /* //tc
+    The following code is executed if TransferInstr object
+    corresponding to the element is not in evalStringCache yet.
+    It parses lowest-level element, creates TransferInstr object
+    out of it, and pushes it into evalStringCache.
+  */
   if(!xmlStrcmp(element->name, (const xmlChar *) "clip"))
   {
     int pos = 0;
@@ -396,15 +642,15 @@ Transfer::evalString(xmlNode *element)
     {
       if(!xmlStrcmp(i->name, (const xmlChar *) "side"))
       {
-	side = i->children->content;
+        side = i->children->content;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "part"))
       {
-	part = i->children->content;
+        part = i->children->content;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "pos"))
       {
-	pos = atoi((const char *)i->children->content) - 1;
+        pos = atoi((const char *)i->children->content) - 1;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "queue"))
       {
@@ -440,7 +686,7 @@ Transfer::evalString(xmlNode *element)
     }
   }
   else if(!xmlStrcmp(element->name, (const xmlChar *) "lit-tag"))
-  {
+  { 
     evalStringCache[element] = TransferInstr(ti_lit_tag,
                                              tags((const char *) element->properties->children->content), 0);
   }
@@ -468,8 +714,8 @@ Transfer::evalString(xmlNode *element)
     {
       if(i->type == XML_ELEMENT_NODE)
       {
-	param = i;
-	break;
+        param = i;
+        break;
       }
     }
 
@@ -488,15 +734,15 @@ Transfer::evalString(xmlNode *element)
     {
       if(!xmlStrcmp(i->name, (const xmlChar *) "side"))
       {
-	side = i->children->content;
+        side = i->children->content;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "part"))
       {
-	part = i->children->content;
+        part = i->children->content;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "pos"))
       {
-	pos = atoi((const char *) i->children->content) - 1;
+        pos = atoi((const char *) i->children->content) - 1;
       }
     }
 
@@ -556,27 +802,27 @@ Transfer::evalString(xmlNode *element)
         for(xmlNode *j = i->children; j != NULL; j = j->next)
         {
           if(j->type == XML_ELEMENT_NODE)
-	  {
+          {
             myword.append(evalString(j));
-	  }
+          }
         }
 
-	if(!first_time)
-	{
-	  if(myword != "" && myword[0] != '#')  //'+#' problem
-	  {
-	    value.append("+");
+        if(!first_time)
+        {
+          if(myword != "" && myword[0] != '#')  //'+#' problem
+          {
+            value.append("+");
           }
-	}
-	else
-	{
-	  if(myword != "")
-	  {
-	    first_time = false;
+        }
+        else
+        {
+          if(myword != "")
+          {
+            first_time = false;
           }
-	}
+        }
 
-	value.append(myword);
+        value.append(myword);
       }
     }
 
@@ -595,7 +841,7 @@ Transfer::evalString(xmlNode *element)
   }
   else
   {
-    wcerr << "Error: unexpected rvalue expression '" << element->name << "'" << endl;
+    cerr << "Error: unexpected rvalue expression '" << element->name << "'" << endl;
     exit(EXIT_FAILURE);
   }
 
@@ -604,7 +850,11 @@ Transfer::evalString(xmlNode *element)
 
 void
 Transfer::processOut(xmlNode *localroot)
-{
+{ 
+  /* //tc
+    Apply 'out' subelement of a rule, one subelement
+    at a time, depending on subelement type.
+  */
   for(xmlNode *i = localroot->children; i != NULL; i = i->next)
   {
     if(i->type == XML_ELEMENT_NODE)
@@ -613,68 +863,69 @@ Transfer::processOut(xmlNode *localroot)
       {
         if(!xmlStrcmp(i->name, (const xmlChar *) "lu"))
         {
-  	  string myword;
-	  for(xmlNode *j = i->children; j != NULL; j = j->next)
-	  {
-	    if(j->type == XML_ELEMENT_NODE)
-	    {
-	      myword.append(evalString(j));
+          string myword;
+          for(xmlNode *j = i->children; j != NULL; j = j->next)
+          {
+            if(j->type == XML_ELEMENT_NODE)
+            {
+              myword.append(evalString(j));
             }
-	  }
-	  if(myword != "")
-	  {
-  	    fputwc_unlocked(L'^', output);
-   	    fputws_unlocked(UtfConverter::fromUtf8(myword).c_str(), output);
-	    fputwc_unlocked(L'$', output);
+          }
+          if(myword != "")
+          {
+            fputwc_unlocked(L'^', output);
+            fputws_unlocked(UtfConverter::fromUtf8(myword).c_str(), output);
+            fputwc_unlocked(L'$', output);
           }
         }
         else if(!xmlStrcmp(i->name, (const xmlChar *) "mlu"))
         {
-	  fputwc_unlocked('^', output);
-	  bool first_time = true;
-	  for(xmlNode *j = i->children; j != NULL; j = j->next)
-	  {
-	    if(j->type == XML_ELEMENT_NODE)
-	    {
+          fputwc_unlocked('^', output);
+          bool first_time = true;
+          for(xmlNode *j = i->children; j != NULL; j = j->next)
+          {
+            if(j->type == XML_ELEMENT_NODE)
+            {
               string myword;
-	      for(xmlNode *k = j->children; k != NULL; k = k->next)
-	      {
-	        if(k->type == XML_ELEMENT_NODE)
-	        {
+              for(xmlNode *k = j->children; k != NULL; k = k->next)
+              {
+                if(k->type == XML_ELEMENT_NODE)
+                {
                   myword.append(evalString(k));
-	        }
-	      }
+                  cerr << myword << endl;
+                }
+              }
 
-	      if(!first_time)
-	      {
-	        if(myword != "" && myword[0] != '#')  //'+#' problem
-	        {
-	          fputwc_unlocked(L'+', output);
+              if(!first_time)
+              {
+                if(myword != "" && myword[0] != '#')  //'+#' problem
+                {
+                  fputwc_unlocked(L'+', output);
                 }
-	      }
-	      else
-	      {
-	        if(myword != "")
-	        {
-	          first_time = false;
+              }
+              else
+              {
+                if(myword != "")
+                {
+                  first_time = false;
                 }
-	      }
-	      fputws_unlocked(UtfConverter::fromUtf8(myword).c_str(), output);
-	    }
-	  }
-	  fputwc_unlocked(L'$', output);
+              }
+              fputws_unlocked(UtfConverter::fromUtf8(myword).c_str(), output);
+            }
+          }
+          fputwc_unlocked(L'$', output);
         }
         else // 'b'
         {
-          fputws_unlocked(UtfConverter::fromUtf8(evalString(i)).c_str(),
-			  output);
+          fputws_unlocked(UtfConverter::fromUtf8(evalString(i)).c_str(), output);
         }
       }
       else
       {
         if(!xmlStrcmp(i->name, (const xmlChar *) "chunk"))
         {
-          fputws_unlocked(UtfConverter::fromUtf8(processChunk(i)).c_str(), output);
+          string processed = processChunk(i);
+          fputws_unlocked(UtfConverter::fromUtf8(processed).c_str(), output);
         }
         else // 'b'
         {
@@ -687,10 +938,20 @@ Transfer::processOut(xmlNode *localroot)
 
 string
 Transfer::processChunk(xmlNode *localroot)
-{
+{ 
+  /* //tc
+    Apply 'chunk' subelement of 'out' element of a rule,
+    one subelement at a time, depending on subelement type.
+  */
+
   string name, namefrom;
   string caseofchunk = "aa";
   string result;
+
+  // cache of source language lemmas found in chunk //tc
+  unsigned int limit = tmpword.size();
+  string* wordcache;
+  wordcache = new string [limit];
 
   for(xmlAttr *i = localroot->properties; i != NULL; i = i->next)
   {
@@ -708,7 +969,10 @@ Transfer::processChunk(xmlNode *localroot)
     }
   }
 
+  // start building the chunk //tc
   result.append("^");
+
+  // add chunk name //tc
   if(caseofchunk != "")
   {
     if(name != "")
@@ -721,7 +985,7 @@ Transfer::processChunk(xmlNode *localroot)
     }
     else
     {
-      wcerr << "Error: you must specify either 'name' or 'namefrom' for the 'chunk' element" << endl;
+      cerr << "Error: you must specify either 'name' or 'namefrom' for the 'chunk' element" << endl;
       exit(EXIT_FAILURE);
     }
   }
@@ -737,23 +1001,29 @@ Transfer::processChunk(xmlNode *localroot)
     }
     else
     {
-      wcerr << "Error: you must specify either 'name' or 'namefrom' for the 'chunk' element" << endl;
+      cerr << "Error: you must specify either 'name' or 'namefrom' for the 'chunk' element" << endl;
       exit(EXIT_FAILURE);
     }
   }
 
+  // processand add chunk subelements one element at a time //tc
+  int count = 0; //di
   for(xmlNode *i = localroot->children; i != NULL; i = i->next)
   {
     if(i->type == XML_ELEMENT_NODE)
     {
+      count++; //di
       if(!xmlStrcmp(i->name, (const xmlChar *) "tags"))
       {
+        // add chunk tags //tc
         result.append(processTags(i));
         result.append("{");
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "lu"))
       {
+        // process and add one 'lu' element //tc
         string myword;
+
         for(xmlNode *j = i->children; j != NULL; j = j->next)
         {
           if(j->type == XML_ELEMENT_NODE)
@@ -812,6 +1082,8 @@ Transfer::processChunk(xmlNode *localroot)
       }
     }
   }
+
+  // finish he chunk //tc
   result.append("}$");
   return result;
 }
@@ -841,7 +1113,7 @@ Transfer::processTags(xmlNode *localroot)
 
 int
 Transfer::processInstruction(xmlNode *localroot)
-{
+{ 
   int words_to_consume = -1;
   if(!xmlStrcmp(localroot->name, (const xmlChar *) "choose"))
   {
@@ -907,12 +1179,12 @@ Transfer::processLet(xmlNode *localroot)
     {
       if(leftSide == NULL)
       {
-	leftSide = i;
+        leftSide = i;
       }
       else
       {
-	rightSide = i;
-	break;
+        rightSide = i;
+        break;
       }
     }
   }
@@ -959,15 +1231,15 @@ Transfer::processLet(xmlNode *localroot)
     {
       if(!xmlStrcmp(i->name, (const xmlChar *) "side"))
       {
-	side = i->children->content;
+        side = i->children->content;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "part"))
       {
-	part = i->children->content;
+        part = i->children->content;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "pos"))
       {
-	pos = atoi((const char *) i->children->content) - 1;
+        pos = atoi((const char *) i->children->content) - 1;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "queue"))
       {
@@ -1037,12 +1309,12 @@ Transfer::processModifyCase(xmlNode *localroot)
     {
       if(leftSide == NULL)
       {
-	leftSide = i;
+        leftSide = i;
       }
       else
       {
-	rightSide = i;
-	break;
+        rightSide = i;
+        break;
       }
     }
   }
@@ -1057,15 +1329,15 @@ Transfer::processModifyCase(xmlNode *localroot)
     {
       if(!xmlStrcmp(i->name, (const xmlChar *) "side"))
       {
-	side = i->children->content;
+        side = i->children->content;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "part"))
       {
-	part = i->children->content;
+        part = i->children->content;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "pos"))
       {
-	pos = atoi((const char *) i->children->content) - 1;
+        pos = atoi((const char *) i->children->content) - 1;
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "queue"))
       {
@@ -1083,13 +1355,13 @@ Transfer::processModifyCase(xmlNode *localroot)
     if(!xmlStrcmp(side, (const xmlChar *) "sl"))
     {
       string const result = copycase(evalString(rightSide),
-				      word[pos]->source(attr_items[(const char *) part], queue));
+                                     word[pos]->source(attr_items[(const char *) part], queue));
       word[pos]->setSource(attr_items[(const char *) part], result);
     }
     else
     {
       string const result = copycase(evalString(rightSide),
-				     word[pos]->target(attr_items[(const char *) part], queue));
+                                     word[pos]->target(attr_items[(const char *) part], queue));
       word[pos]->setTarget(attr_items[(const char *) part], result);
     }
   }
@@ -1185,31 +1457,31 @@ Transfer::processChoose(xmlNode *localroot)
       {
         bool picked_option = false;
 
-	for(xmlNode *j = i->children; j != NULL; j = j->next)
-	{
-	  if(j->type == XML_ELEMENT_NODE)
-	  {
-	    if(!xmlStrcmp(j->name, (const xmlChar *) "test"))
-	    {
-	      if(!processTest(j))
-	      {
-		break;
-	      }
-	      else
-	      {
-	        picked_option = true;
+        for(xmlNode *j = i->children; j != NULL; j = j->next)
+        {
+          if(j->type == XML_ELEMENT_NODE)
+          {
+            if(!xmlStrcmp(j->name, (const xmlChar *) "test"))
+            {
+              if(!processTest(j))
+              {
+                break;
               }
-	    }
-	    else
-	    {
+              else
+              {
+                picked_option = true;
+              }
+            }
+            else
+            {
               words_to_consume = processInstruction(j);
               if(words_to_consume != -1)
               {
                 return words_to_consume;
               }
-	    }
-	  }
-	}
+            }
+          }
+        }
         if(picked_option)
         {
           return words_to_consume;
@@ -1217,10 +1489,10 @@ Transfer::processChoose(xmlNode *localroot)
       }
       else if(!xmlStrcmp(i->name, (const xmlChar *) "otherwise"))
       {
-	for(xmlNode *j = i->children; j != NULL; j = j->next)
-	{
-	  if(j->type == XML_ELEMENT_NODE)
-	  {
+        for(xmlNode *j = i->children; j != NULL; j = j->next)
+        {
+          if(j->type == XML_ELEMENT_NODE)
+          {
             words_to_consume = processInstruction(j);
             if(words_to_consume != -1)
             {
@@ -1307,17 +1579,16 @@ Transfer::processIn(xmlNode *localroot)
 
   if(localroot->properties != NULL)
   {
-    if(!xmlStrcmp(localroot->properties->children->content,
-		  (const xmlChar *) "yes"))
+    if(!xmlStrcmp(localroot->properties->children->content, (const xmlChar *) "yes"))
     {
       set<string, Ltstr> &myset = listslow[(const char *) idlist];
       if(myset.find(tolower(sval)) != myset.end())
       {
-	return true;
+        return true;
       }
       else
       {
-	return false;
+        return false;
       }
     }
   }
@@ -1404,8 +1675,8 @@ Transfer::processEqual(xmlNode *localroot)
       }
       else
       {
-	second = i;
-	break;
+        second = i;
+        break;
       }
     }
   }
@@ -1417,7 +1688,7 @@ Transfer::processEqual(xmlNode *localroot)
   else
   {
     if(!xmlStrcmp(localroot->properties->children->content,
-		  (const xmlChar *) "yes"))
+                  (const xmlChar *) "yes"))
     {
       return tolower(evalString(first)) == tolower(evalString(second));
     }
@@ -1484,8 +1755,8 @@ Transfer::processBeginsWith(xmlNode *localroot)
       }
       else
       {
-	second = i;
-	break;
+        second = i;
+        break;
       }
     }
   }
@@ -1497,7 +1768,7 @@ Transfer::processBeginsWith(xmlNode *localroot)
   else
   {
     if(!xmlStrcmp(localroot->properties->children->content,
-		  (const xmlChar *) "yes"))
+                  (const xmlChar *) "yes"))
     {
       return beginsWith(tolower(evalString(first)), tolower(evalString(second)));
     }
@@ -1523,8 +1794,8 @@ Transfer::processEndsWith(xmlNode *localroot)
       }
       else
       {
-	second = i;
-	break;
+        second = i;
+        break;
       }
     }
   }
@@ -1536,7 +1807,7 @@ Transfer::processEndsWith(xmlNode *localroot)
   else
   {
     if(!xmlStrcmp(localroot->properties->children->content,
-		  (const xmlChar *) "yes"))
+                  (const xmlChar *) "yes"))
     {
       return endsWith(tolower(evalString(first)), tolower(evalString(second)));
     }
@@ -1562,8 +1833,8 @@ Transfer::processBeginsWithList(xmlNode *localroot)
       }
       else
       {
-	second = i;
-	break;
+        second = i;
+        break;
       }
     }
   }
@@ -1611,8 +1882,8 @@ Transfer::processEndsWithList(xmlNode *localroot)
       }
       else
       {
-	second = i;
-	break;
+        second = i;
+        break;
       }
     }
   }
@@ -1659,8 +1930,8 @@ Transfer::processContainsSubstring(xmlNode *localroot)
       }
       else
       {
-	second = i;
-	break;
+        second = i;
+        break;
       }
     }
   }
@@ -1672,7 +1943,7 @@ Transfer::processContainsSubstring(xmlNode *localroot)
   else
   {
     if(!xmlStrcmp(localroot->properties->children->content,
-		  (const xmlChar *) "yes"))
+                  (const xmlChar *) "yes"))
     {
       return tolower(evalString(first)).find(tolower(evalString(second))) != string::npos;
     }
@@ -1781,8 +2052,8 @@ Transfer::tags(string const &str) const
 int
 Transfer::processRule(xmlNode *localroot)
 {
+  // localroot is supposed to point to an 'action' element of xml tree. //tc
   int instruction_return, words_to_consume = -1;
-  // localroot is suposed to be an 'action' tag
   for(xmlNode *i = localroot->children; i != NULL; i = i->next)
   {
     if(i->type == XML_ELEMENT_NODE)
@@ -1812,6 +2083,7 @@ Transfer::readToken(FILE *in)
   while(true)
   {
     int val = fgetwc_unlocked(in);
+
     if(feof(in) || (val == 0 && internal_null_flush))
     {
       return input_buffer.add(TransferToken(content, tt_eof));
@@ -1826,21 +2098,21 @@ Transfer::readToken(FILE *in)
       content += L'[';
       while(true)
       {
-	int val2 = fgetwc_unlocked(in);
-	if(val2 == L'\\')
-	{
-	  content += L'\\';
-	  content += wchar_t(fgetwc_unlocked(in));
-	}
-	else if(val2 == L']')
-	{
-	  content += L']';
-	  break;
-	}
-	else
-	{
-	  content += wchar_t(val2);
-	}
+        int val2 = fgetwc_unlocked(in);
+        if(val2 == L'\\')
+        {
+          content += L'\\';
+          content += wchar_t(fgetwc_unlocked(in));
+        }
+        else if(val2 == L']')
+        {
+          content += L']';
+          break;
+        }
+        else
+        {
+          content += wchar_t(val2);
+        }
       }
     }
     else if(val == L'$')
@@ -1917,7 +2189,7 @@ Transfer::transfer(FILE *in, FILE *out)
 
   int last = 0;
   int prev_last = 0;
-  int lastrule_id = -1;
+  lastrule_num = -1;
   set<int> banned_rules;
 
   output = out;
@@ -1927,10 +2199,9 @@ Transfer::transfer(FILE *in, FILE *out)
   {
     if(trace_att)
     {
-      wcerr << "Loop start " << endl;
-      wcerr << "ms.size: " << ms.size() << endl;
-
-      wcerr << "tmpword.size(): " << tmpword.size() << endl;
+      cerr << "Loop start " << endl;
+      cerr << "ms.size: " << ms.size() << endl;
+      cerr << "tmpword.size(): " << tmpword.size() << endl;
       for (unsigned int ind = 0; ind < tmpword.size(); ind++)
       {
         if(ind != 0)
@@ -1940,8 +2211,7 @@ Transfer::transfer(FILE *in, FILE *out)
         wcerr << *tmpword[ind];
       }
       wcerr << endl;
-
-      wcerr << "tmpblank.size(): " << tmpblank.size() << endl;
+      cerr << "tmpblank.size(): " << tmpblank.size() << endl;
       for (unsigned int ind = 0; ind < tmpblank.size(); ind++)
       {
         wcerr << L"'";
@@ -1949,20 +2219,20 @@ Transfer::transfer(FILE *in, FILE *out)
         wcerr << L"' ";
       }
       wcerr << endl;
+      cerr << "last: " << last << endl;
+      cerr << "prev_last: " << prev_last << endl << endl;
+    } 
 
-      wcerr << "last: " << last << endl;
-      wcerr << "prev_last: " << prev_last << endl << endl;
-    }
-
-    if(ms.size() == 0)
+    if (ms.size() == 0)
     {
       if(lastrule != NULL)
       {
+        // here, the rule specified by lastrule_num is applied //tc
         int num_words_to_consume = applyRule();
 
         if(trace_att)
         {
-          wcerr << "num_words_to_consume: " << num_words_to_consume << endl;
+          cerr << "num_words_to_consume: " << num_words_to_consume << endl;
         }
 
         //Consume all the words from the input which matched the rule.
@@ -1996,28 +2266,28 @@ Transfer::transfer(FILE *in, FILE *out)
         else
         {
           //Add rule to banned rules
-          banned_rules.insert(lastrule_id);
+          banned_rules.insert(lastrule_num);
           input_buffer.setPos(prev_last);
           input_buffer.next();
           last = input_buffer.getPos();
-        }
-        lastrule_id = -1;
+        } // thy words consumed
+        lastrule_num = -1;
       }
-      else
+      else // lastrule == NULL //tc
       {
         if(tmpword.size() != 0)
         {
           if(trace_att)
           {
-            wcerr << "printing tmpword[0]" <<endl;
+            cerr << "printing tmpword[0]" <<endl;
           }
 
           pair<wstring, int> tr;
           if(useBilingual && preBilingual == false)
           {
-	    if(isExtended && (*tmpword[0])[0] == L'*')
-	    {
-	      tr = extended.biltransWithQueue((*tmpword[0]).substr(1), false);
+            if(isExtended && (*tmpword[0])[0] == L'*')
+            {
+              tr = extended.biltransWithQueue((*tmpword[0]).substr(1), false);
               if(tr.first[0] == L'@')
               {
                 tr.first[0] = L'*';
@@ -2029,7 +2299,7 @@ Transfer::transfer(FILE *in, FILE *out)
             }
             else
             {
-	      tr = fstp.biltransWithQueue(*tmpword[0], false);
+              tr = fstp.biltransWithQueue(*tmpword[0], false);
             }
           }
           else if(preBilingual)
@@ -2082,13 +2352,13 @@ Transfer::transfer(FILE *in, FILE *out)
             tr = pair<wstring, int>(*tmpword[0], 0);
           }
 
-	  if(tr.first.size() != 0)
-	  {
-	    if(defaultAttrs == lu)
-	    {
-	      fputwc_unlocked(L'^', output);
-	      fputws_unlocked(tr.first.c_str(), output);
-	      fputwc_unlocked(L'$', output);
+          if(tr.first.size() != 0)
+          { 
+            if(defaultAttrs == lu)
+            {
+              fputwc_unlocked(L'^', output);
+              fputws_unlocked(tr.first.c_str(), output);
+              fputwc_unlocked(L'$', output);
             }
             else
             {
@@ -2098,39 +2368,40 @@ Transfer::transfer(FILE *in, FILE *out)
               }
               else
               {
-	        fputws_unlocked(L"^default<default>{^", output);
+                fputws_unlocked(L"^default<default>{^", output);
               }
-	      fputws_unlocked(tr.first.c_str(), output);
-	      fputws_unlocked(L"$}$", output);
+              fputws_unlocked(tr.first.c_str(), output);
+              fputws_unlocked(L"$}$", output);
             }
-	  }
-	  banned_rules.clear();
-	  tmpword.clear();
-	  input_buffer.setPos(last);
-	  input_buffer.next();
-	  prev_last = last;
-	  last = input_buffer.getPos();
-	  ms.init(me->getInitial());
-	}
-	else if(tmpblank.size() != 0)
-	{
+          }
+          banned_rules.clear();
+          tmpword.clear();
+          input_buffer.setPos(last);
+          input_buffer.next();
+          prev_last = last;
+          last = input_buffer.getPos();
+          ms.init(me->getInitial());
+        }
+        else if(tmpblank.size() != 0)
+        {
           if(trace_att)
           {
-            wcerr << "printing tmpblank[0]" <<endl;
+            cerr << "printing tmpblank[0]" <<endl;
           }
           fputws_unlocked(tmpblank[0]->c_str(), output);
           tmpblank.clear();
           prev_last = last;
           last = input_buffer.getPos();
           ms.init(me->getInitial());
-	}
+        }
       }
     }
+
     int val = ms.classifyFinals(me->getFinals(), banned_rules);
     if(val != -1)
     {
       lastrule = rule_map[val-1];
-      lastrule_id = val;
+      lastrule_num = val;
       last = input_buffer.getPos();
 
       if(trace)
@@ -2149,35 +2420,34 @@ Transfer::transfer(FILE *in, FILE *out)
     }
 
     TransferToken &current = readToken(in);
-
     switch(current.getType())
-    {
+    { 
       case tt_word:
-	applyWord(current.getContent());
+        applyWord(current.getContent());
         tmpword.push_back(&current.getContent());
-	break;
+        break;
 
       case tt_blank:
-	ms.step(L' ');
-	tmpblank.push_back(&current.getContent());
-	break;
+        ms.step(L' ');
+        tmpblank.push_back(&current.getContent());
+        break;
 
       case tt_eof:
-	if(tmpword.size() != 0)
-	{
-	  tmpblank.push_back(&current.getContent());
-	  ms.clear();
-	}
-	else
-	{
-	  fputws_unlocked(current.getContent().c_str(), output);
-	  return;
-	}
-	break;
+        if(tmpword.size() != 0)
+        {
+          tmpblank.push_back(&current.getContent());
+          ms.clear();
+        }
+        else
+        {
+          fputws_unlocked(current.getContent().c_str(), output);
+          return;
+        }
+        break;
 
       default:
-	wcerr << "Error: Unknown input token." << endl;
-	return;
+        cerr << "Error: Unknown input token." << endl;
+        return;
     }
   }
 }
@@ -2187,7 +2457,7 @@ Transfer::applyRule()
 {
   int words_to_consume;
   unsigned int limit = tmpword.size();
-  //wcerr << L"applyRule: " << tmpword.size() << endl;
+  wstring wtmpchunk = L"";
 
   for(unsigned int i = 0; i != limit; i++)
   {
@@ -2216,10 +2486,18 @@ Transfer::applyRule()
     if(useBilingual && preBilingual == false)
     {
       tr = fstp.biltransWithQueue(*tmpword[i], false);
+      cerr << i << " ";
     }
     else if(preBilingual)
-    {
-      //wcerr << "applyRule: " << *tmpword[i] << endl;
+    { 
+      /* //tc
+        split bilingual token by slash, e.g.
+        if tmpword[i] was word_in_lang1<its><tags>/word_in_lang2<its><tags> 
+        then
+        sl = word_in_lang1<its><tags>
+        tl = word_in_lang2<its><tags>
+      */
+
       wstring sl;
       wstring tl;
       int seenSlash = 0;
@@ -2247,6 +2525,7 @@ Transfer::applyRule()
           seenSlash++;
           continue;
         }
+
         if(seenSlash == 0)
         {
           sl.push_back(*it);
@@ -2260,8 +2539,13 @@ Transfer::applyRule()
           break;
         }
       }
+
       //tmpword[i]->assign(sl);
       tr = pair<wstring, int>(tl, false);
+      if (useWeights)
+      {
+        wtmpchunk = wtmpchunk + sl + L" ";
+      }
     }
     else
     {
@@ -2269,10 +2553,132 @@ Transfer::applyRule()
     }
 
     word[i] = new TransferWord(UtfConverter::toUtf8(*tmpword[i]),
-			       UtfConverter::toUtf8(tr.first), tr.second);
+                               UtfConverter::toUtf8(tr.first), tr.second);
+  }
+
+  if (useWeights)
+  {
+    double chosen_weight = 0., current_weight = 0.;
+    string chosen_rule_id = rule_ids[lastrule_num];
+    string current_rule_id = "";
+
+    if (chosen_rule_id != "")
+    {
+      /* //tc
+        If there are other rules in the rule group,
+        that means the chosen rule is ambiguous.
+      */
+      
+      unsigned int rule_group_num = rule_group_map[chosen_rule_id];
+      if (rule_groups[rule_group_num].second.size() > 1)
+      {
+        string tmpchunk = UtfConverter::toUtf8(wtmpchunk);
+        string lookup_chunk_lemma = "";
+        string lookup_chunk_tags = "";
+        string lookup_chunk = "";
+        bool reading_lemma = true;
+        vector<pair<string, string> > lookup_chunk_tokens;
+        unsigned int lookup_chunk_len = 0;
+
+        cerr << "Rule # " << lastrule_num << " with id '" << chosen_rule_id; //di
+        cerr << "' is ambiguous on input:" << endl; //di
+        cerr << tmpchunk << endl << endl; //di
+        cerr << "with other rules being: " << endl;//di
+        for (unsigned int i = 0; i < rule_groups[rule_group_num].second.size() - 1; i++) { //di
+          cerr << rule_groups[rule_group_num].second[i] << ", "; //di
+        } //di
+        cerr << "and " << rule_groups[rule_group_num].second[rule_groups[rule_group_num].second.size() - 1] << endl << endl; //di
+
+        for (unsigned int i = 0; i <= tmpchunk.size() && lookup_chunk_len < rule_groups[rule_group_num].first; i++)
+        {
+          switch (tmpchunk[i]) {
+            case ' ':
+              lookup_chunk_len++;
+              lookup_chunk_tokens.push_back(make_pair(lookup_chunk_lemma, lookup_chunk_tags));
+              lookup_chunk_lemma = "";
+              lookup_chunk_tags = "";
+              reading_lemma = true;
+              break;
+
+            case '<':
+              lookup_chunk_tags = lookup_chunk_tags + tmpchunk[i];
+              reading_lemma = false;
+              break;
+
+            default:
+              if (reading_lemma) {
+                lookup_chunk_lemma = lookup_chunk_lemma + tmpchunk[i];
+              } 
+              else {
+                lookup_chunk_tags = lookup_chunk_tags + tmpchunk[i];
+              }
+          }
+        }
+
+        patternmap::iterator lookup_pattern;
+        genpatternmap::iterator lemma_length_pattern_group;
+        bool searching = true;
+        for (int lemma_count = rule_groups[rule_group_num].first; lemma_count >= 0 && searching; lemma_count--)
+        {
+          cerr << "Checking patterns with " << lemma_count << " lemma(s)" << endl; //di
+          lemma_length_pattern_group = weighted_patterns[rule_group_num].find(lemma_count);
+          if (lemma_length_pattern_group != weighted_patterns[rule_group_num].end())
+          {
+            cerr << "Have patterns with " << lemma_count << " lemma(s)" << endl; //di
+            chosen_weight = 0.;
+            for (map<string, patternmap>::iterator it1 = lemma_length_pattern_group->second.begin(); it1 != lemma_length_pattern_group->second.end(); it1++) //di
+            {
+              cerr << "  Checking patterns with lemma signature " << it1->first << endl; //di
+              lookup_chunk = "";
+              for (unsigned int i = 0; i < lookup_chunk_tokens.size(); i++)
+              {
+                if (it1->first[i] == '1')
+                {
+                  lookup_chunk = lookup_chunk + lookup_chunk_tokens[i].first;
+                }
+                lookup_chunk = lookup_chunk + lookup_chunk_tokens[i].second + ' ';
+              }
+              cerr << "  Going to check for " << lookup_chunk << endl; //di
+              lookup_pattern = it1->second.find(lookup_chunk);
+              if (lookup_pattern != it1->second.end())
+              {
+                searching = false;
+                // let's check the weights for each rule in the group //tc
+                for (unsigned int ind = 0; ind < (lookup_pattern->second).size(); ind++)
+                {
+                  current_rule_id = (lookup_pattern->second)[ind].first;
+                  current_weight = (lookup_pattern->second)[ind].second;
+                  cerr << "    Pattern " << lookup_pattern->first; //di
+                  cerr << " matched for rule " << current_rule_id; //di
+                  cerr << " with weight " << current_weight << endl; //di
+                  if (current_weight > chosen_weight) // found heavier rule //tc
+                  {
+                    chosen_weight = current_weight;
+                    chosen_rule_id = current_rule_id;
+                  }
+                }
+              }
+              else //di
+              { //di
+                cerr << "  Not found" << endl;
+              } //di
+            }
+            cerr << endl; //di
+          }
+        }
+
+        // substitute lastrule with the chosen one //tc
+        lastrule_num = rule_id_map[chosen_rule_id];
+        lastrule = rule_map[lastrule_num-1];
+        cerr << "Rule # " << lastrule_num << " with id '" << chosen_rule_id;
+        cerr << "' wins with weight " << chosen_weight << endl << endl; //di
+      }
+    }
   }
 
   words_to_consume = processRule(lastrule);
+
+  // some cleanup //tc
   lastrule = NULL;
 
   if(word)
@@ -2301,7 +2707,6 @@ Transfer::applyRule()
   return words_to_consume;
 }
 
-/* HERE */
 void
 Transfer::applyWord(wstring const &word_str)
 {
@@ -2312,67 +2717,84 @@ Transfer::applyWord(wstring const &word_str)
     {
       case L'\\':
         i++;
-	ms.step(towlower(word_str[i]), any_char);
-	break;
+        ms.step(towlower(word_str[i]), any_char);
+        break;
 
-      case L'/':
+      case L'/': // got to the end of left side part (source token) //tc
         i = limit;
         break;
 
-      case L'<':
-	for(unsigned int j = i+1; j != limit; j++)
-	{
-	  if(word_str[j] == L'>')
-	  {
-	    int symbol = alphabet(word_str.substr(i, j-i+1));
-	    if(symbol)
-	    {
-	      ms.step(symbol, any_tag);
-	    }
-	    else
-	    {
-	      ms.step(any_tag);
-	    }
-	    i = j;
-	    break;
-	  }
-	}
-	break;
+      case L'<': // got to the start of a tag //tc
+        for(unsigned int j = i+1; j != limit; j++)
+        {
+          if(word_str[j] == L'>') // got to the end of the tag //tc
+          {
+            // try to get the symbol corresponding to the tag //tc
+            int symbol = alphabet(word_str.substr(i, j-i+1));
+            if(symbol)
+            {
+              // there is such symbol in alphabet //tc
+              ms.step(symbol, any_tag);
+            }
+            else
+            {
+              // there is no such symbol in alphabet //tc
+              ms.step(any_tag);
+            }
+            i = j;
+            break;
+          }
+        }
+        break;
 
       default:
-	ms.step(towlower(word_str[i]), any_char);
-	break;
+        // default is applying lemma's symbols one by one //tc
+        ms.step(towlower(word_str[i]), any_char);
+        break;
     }
   }
+  // push the end of token //tc
   ms.step(L'$');
 }
 
 void
 Transfer::setPreBilingual(bool value)
-{
+{ 
   preBilingual = value;
 }
 
 bool
 Transfer::getPreBilingual(void) const
-{
+{ 
   return preBilingual;
 }
 
 void
 Transfer::setUseBilingual(bool value)
-{
+{ 
   useBilingual = value;
 }
 
 bool
 Transfer::getUseBilingual(void) const
-{
+{ 
   return useBilingual;
 }
 
 void
 Transfer::setCaseSensitiveness(bool value)
-{
+{ 
   fstp.setCaseSensitiveMode(value);
+}
+
+void
+Transfer::setUseWeights(bool value)
+{
+  useWeights = value;
+}
+
+bool
+Transfer::getUseWeights(void) const
+{
+  return useWeights;
 }

@@ -34,8 +34,13 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <pcre.h>
 
 using namespace std;
+
+typedef vector<pair<string, double> > idweightvector;
+typedef map<string, idweightvector> patternmap;
+typedef map<int, map<string, patternmap> > genpatternmap;
 
 class Transfer
 {
@@ -49,8 +54,49 @@ private:
   map<string, int, Ltstr> macros;
   map<string, set<string, Ltstr>, Ltstr> lists;
   map<string, set<string, Ltstr>, Ltstr> listslow;
+
+  /**
+    all macros in xml in order of their appearance in transfer file
+  */
   vector<xmlNode *> macro_map;
+
+  /**
+    all rule actions in xml in order of their appearance in transfer file
+  */
   vector<xmlNode *> rule_map;
+
+  /**
+    rule ids in order of their appearance in transfer file
+    first rule at position 1
+  */
+  vector<string> rule_ids;
+
+  /**
+    rule id : rule number
+  */
+  map<string, int> rule_id_map;
+
+  /**
+    information about rule groups
+    each element of outer vector is pair of pattern length and vector of rule ids
+  */
+  vector<pair<int, vector<string> > > rule_groups; 
+
+  /**
+    rule id : rule group number
+  */
+  map<string, int> rule_group_map; 
+
+  /**
+    all weighted patterns, grouped by rule group number
+    index of outer vector corresponds to rule group numbers
+    elements of vector are maps from number of lemmas in pattern
+    to the map of string denoting actual lemma distribution
+    (e.g., "010" means no lemma for the 1st and the 3rd pattern items)
+    to the map of actual patterns to the vector of pairs (rule id, weight)
+  */
+  vector<genpatternmap> weighted_patterns;
+
   xmlDoc *doc;
   xmlNode *root_element;
   TransferWord **word;
@@ -68,6 +114,7 @@ private:
   int any_tag;
 
   xmlNode *lastrule;
+  int lastrule_num;
   unsigned int nwords;
 
   map<xmlNode *, TransferInstr> evalStringCache;
@@ -77,6 +124,7 @@ private:
   OutputType defaultAttrs;
   bool preBilingual;
   bool useBilingual;
+  bool useWeights;
   bool null_flush;
   bool internal_null_flush;
   bool trace;
@@ -84,18 +132,65 @@ private:
   string emptyblank;
   
   void destroy();
-  void readData(FILE *input);
-  void readBil(string const &filename);
+
+  /**
+    Read transfer rules from t*x xml file.
+    In fact, only only default attribute value, macros, rule actions,
+    and rule ids (if using weights) are read here.
+  */
   void readTransfer(string const &input);
+
+  /**
+    Read transfer weights from w*x xml file.
+  */
+  void readTransferWeights(string const &in);
+
+  /**
+    Read macros from t*x xml file.
+    localroot must point to 'section-macros' element in transfer xml tree.
+  */
   void collectMacros(xmlNode *localroot);
+
+  /**
+    Read rule actions, and rule ids (if using weights) from t*x xml file.
+    localroot must point to 'section-rules' element in transfer xml tree.
+  */
   void collectRules(xmlNode *localroot);
+
+  /**
+    Get the value of 'id' attribute of 'rule' element.
+    localrootand must point to 'rule' element in transfer xml tree.
+  */
+  string getRuleId(xmlNode *localroot);
+
+  /**
+    Get the value of attr_name attribute of xml tree element,
+    which is pointed to by localroot.
+  */
+  string getNodeAttr(xmlNode *localroot, const char* attr_name);
+
+  /**
+    Read precompiled transfer rules from t*x.bin binary file.
+  */
+  void readData(FILE *input);
+
+  /**
+    Read data from bilingual letter transducer file if specified.
+  */
+  void readBil(string const &filename);
+
   string caseOf(string const &str);
   string copycase(string const &source_word, string const &target_word);
 
-  void processLet(xmlNode *localroot);
-  void processAppend(xmlNode *localroot);
-  int processRejectCurrentRule(xmlNode *localroot);
+  /**
+    Apply subelements of 'out' subelement of rule action,
+    one subelement at a time, depending on subelement type.
+  */
   void processOut(xmlNode *localroot);
+
+  /**
+    Apply various types of rule action subelements.
+  */
   void processCallMacro(xmlNode *localroot);
   void processModifyCase(xmlNode *localroot);
   bool processLogical(xmlNode *localroot);
@@ -110,10 +205,32 @@ private:
   bool processContainsSubstring(xmlNode *localroot);
   bool processNot(xmlNode *localroot);
   bool processIn(xmlNode *localroot);
+  void processLet(xmlNode *localroot);
+  void processAppend(xmlNode *localroot);
+  int processRejectCurrentRule(xmlNode *localroot);
+
+  /**
+    Process instructions specified in previously stored 'action' part
+    of the rule. localroot must point to an 'action' element of xml tree.
+  */
   int processRule(xmlNode *localroot);
+
+  /**
+    Evaluate an xml element and execute appropriate instruction.
+    Used for lowest-level action elements, such as 'clip' or 'lit-tag'.
+  */
   string evalString(xmlNode *localroot);
+
+  /**
+    Process instruction specified in rule action based on instruction name.
+  */
   int processInstruction(xmlNode *localroot);
   int processChoose(xmlNode *localroot);
+
+  /**
+    Apply 'chunk' subelement of 'out' element of a rule,
+    one subelement at a time, depending on subelement type.
+  */
   string processChunk(xmlNode *localroot);
   string processTags(xmlNode *localroot);
 
@@ -124,18 +241,35 @@ private:
   wstring readWord(FILE *in);
   wstring readBlank(FILE *in);
   wstring readUntil(FILE *in, int const symbol) const;
+
+  /**
+    Feed the token contained in word_str
+    to internal FST by transiting over its states with ms.
+  */
   void applyWord(wstring const &word_str);
   int applyRule();
   TransferToken & readToken(FILE *in);
   bool checkIndex(xmlNode *element, int index, int limit);
   void transfer_wrapper_null_flush(FILE *in, FILE *out);
+
 public:
   Transfer();
   ~Transfer();
   
-  void read(string const &transferfile, string const &datafile,
-	    string const &fstfile = "");
+  /**
+    Read all data needed for transfer.
+  */
+  void read(string const &transferfile, string const &datafile, 
+            string const &weightsfile = "", string const &fstfile = "");
+
+  /**
+    Perform transfer.
+  */
   void transfer(FILE *in, FILE *out);
+
+  /**
+    Boilerplate for setting and getting values of private attributes.
+  */
   void setUseBilingual(bool value);
   bool getUseBilingual(void) const;
   void setPreBilingual(bool value);
@@ -146,6 +280,8 @@ public:
   void setNullFlush(bool null_flush);
   void setTrace(bool trace);
   void setTraceATT(bool trace);
+  void setUseWeights(bool weighted);
+  bool getUseWeights(void) const;
 };
 
 #endif
