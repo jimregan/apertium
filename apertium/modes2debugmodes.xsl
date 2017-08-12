@@ -123,6 +123,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
       <xsl:when test="starts-with($p, 'apertium-interchunk')">
         <xsl:text> -t</xsl:text>
       </xsl:when>
+      <xsl:when test="starts-with($p, 'apertium-postchunk')">
+        <xsl:text> -t</xsl:text>
+      </xsl:when>
       <xsl:otherwise>
         <xsl:text></xsl:text>
       </xsl:otherwise>
@@ -130,6 +133,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
   </xsl:template>
 
   <xsl:template match="program">
+    <!-- Regular debug modes: -->
     <mode install="no">
       <xsl:attribute name="name">
         <xsl:value-of select="../../@name"/>
@@ -155,6 +159,64 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
         </program>
       </pipeline>
     </mode>
+    <!-- Untrimmed debug modes, prefixed @: -->
+    <mode install="no">
+      <xsl:attribute name="name">
+        <xsl:text>@</xsl:text>
+        <xsl:value-of select="../../@name"/>
+        <xsl:call-template name="debugSuffix">
+          <xsl:with-param name="progname" select="./@name"/>
+          <xsl:with-param name="suff-attr" select="./@debug-suff"/>
+        </xsl:call-template>
+      </xsl:attribute>
+      <pipeline>
+        <xsl:apply-templates select="./preceding-sibling::*" mode="untrim"/>
+        <program>
+          <xsl:attribute name="name">
+            <xsl:call-template name="replaceString">
+              <xsl:with-param name="haystack" select="./@name"/>
+              <xsl:with-param name="needle" select="'$1'"/>
+              <xsl:with-param name="replacement" select="'-d'"/>
+            </xsl:call-template>
+            <xsl:call-template name="traceOpt">
+              <xsl:with-param name="progname" select="./@name"/>
+            </xsl:call-template>
+          </xsl:attribute>
+          <xsl:apply-templates select="./*" mode="untrim"/>
+        </program>
+      </pipeline>
+    </mode>
+  </xsl:template>
+
+  <!-- For untrimmed modes, we assume they have the name
+       LANG1-LANG2.automorf-untrimmed.bin corresponding to
+       LANG1-LANG2.automorf.bin
+  -->
+  <xsl:template match="file" mode="untrim">
+    <xsl:choose>
+      <xsl:when test="contains(@name, '.automorf.')">
+        <file>
+          <xsl:attribute name="name">
+            <xsl:call-template name="replaceString">
+              <xsl:with-param name="haystack" select="./@name"/>
+              <xsl:with-param name="needle" select="'.automorf.'"/>
+              <xsl:with-param name="replacement" select="'.automorf-untrimmed.'"/>
+            </xsl:call-template>
+          </xsl:attribute>
+        </file>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:copy>
+          <xsl:apply-templates select="@* | node()" mode="untrim"/>
+        </xsl:copy>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <xsl:template match="@* | node()" mode="untrim">
+    <xsl:copy>
+      <xsl:apply-templates select="@* | node()" mode="untrim"/>
+    </xsl:copy>
   </xsl:template>
 
   <!-- catch-all -->

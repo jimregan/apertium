@@ -51,6 +51,7 @@ AC_SUBST(GENERIC_VERSION)
 VERSION=$GENERIC_VERSION
 
 AM_INIT_AUTOMAKE(no-define)
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_PROG_CXX
 AC_PROG_LIBTOOL
@@ -184,6 +185,18 @@ AC_CHECK_FUNCS([setlocale strdup getopt snprintf mbtowc])
 AC_REPLACE_FUNCS(getopt_long)
 
 AM_CONDITIONAL([WINDOWS], [test x$version_type = xwindows])
-AS_IF([test x$version_type = xwindows], [AC_DEFINE(HAVE_GETOPT_LONG,0)], [])
+#AS_IF([test x$version_type = xwindows], [AC_DEFINE(HAVE_GETOPT_LONG,0)], [])
 
-AC_OUTPUT([Makefile apertium.pc apertium/Makefile])
+# Checks for highest supported C++ standard
+AC_LANG(C++)
+AX_CHECK_COMPILE_FLAG([-std=c++17], [CXXFLAGS="$CXXFLAGS -std=c++17"], [
+ AX_CHECK_COMPILE_FLAG([-std=c++1z], [CXXFLAGS="$CXXFLAGS -std=c++1z"], [
+  AX_CHECK_COMPILE_FLAG([-std=c++14], [CXXFLAGS="$CXXFLAGS -std=c++14"], [
+   AX_CHECK_COMPILE_FLAG([-std=c++1y], [CXXFLAGS="$CXXFLAGS -std=c++1y"], [
+    AX_CHECK_COMPILE_FLAG([-std=c++11], [CXXFLAGS="$CXXFLAGS -std=c++11"], [])
+   ])
+  ])
+ ])
+])
+
+AC_OUTPUT([Makefile apertium.pc apertium/Makefile tests/Makefile tests/tagger/Makefile])

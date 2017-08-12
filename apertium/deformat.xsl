@@ -51,6 +51,9 @@
       <xsl:if test="./@eos = string('yes')">
 	<xsl:value-of select="string('  isDot = true;&#xA;')"/>
       </xsl:if>
+      <xsl:if test="./@eoh = string('yes')">
+	<xsl:value-of select="string('  isEoh = true;&#xA;')"/>
+      </xsl:if>
       <xsl:value-of select="string('  bufferAppend(buffer, yytext);&#xA;}&#xA;')"/>
     </xsl:when>
     <xsl:otherwise>
@@ -59,6 +62,9 @@
       <xsl:value-of select="string('&#x9;{&#xA;')"/>
       <xsl:if test="./@eos = string('yes')">
 	<xsl:value-of select="string('  isDot = true;&#xA;')"/>
+      </xsl:if>
+      <xsl:if test="./@eoh = string('yes')">
+	<xsl:value-of select="string('  isEoh = true;&#xA;')"/>
       </xsl:if>
       <xsl:value-of select="string('  bufferAppend(buffer, yytext);&#xA;  yy_push_state(C')"/>
       <xsl:for-each select="/format/rules/format-rule/begin ">
@@ -79,6 +85,9 @@
       <xsl:if test="./@eos = string('yes')">
         <xsl:value-of select="string('  isDot = true;&#xA;')"/>
       </xsl:if>
+      <xsl:if test="./@eoh = string('yes')">
+	<xsl:value-of select="string('  isEoh = true;&#xA;')"/>
+      </xsl:if>
       <xsl:value-of select="string('  printBuffer();&#xA;')"/>
 
       <xsl:value-of select="string('  if (hasWrite_white) {&#xA;    fputws(L&quot; &quot;, yyout);&#xA;')"/>
@@ -97,6 +106,9 @@
       <xsl:if test="./@eos = string('yes')">
         <xsl:value-of select="string('  isDot = true;&#xA;')"/>
       </xsl:if>
+      <xsl:if test="./@eoh = string('yes')">
+	<xsl:value-of select="string('  isEoh = true;&#xA;')"/>
+      </xsl:if>
       <xsl:value-of select="string('  int ind=get_index(yytext);&#xA;')"/>
       <xsl:value-of select="string('  printBuffer(ind, yytext);&#xA;}&#xA;')"/>
     </xsl:when>
@@ -106,6 +118,9 @@
       <xsl:value-of select="string('&#x9;{&#xA;')"/>
       <xsl:if test="./@eos = string('yes')">
         <xsl:value-of select="string('  isDot = true;&#xA;')"/>
+      </xsl:if>
+      <xsl:if test="./@eoh = string('yes')">
+	<xsl:value-of select="string('  isEoh = true;&#xA;')"/>
       </xsl:if>
       <xsl:value-of select="string('  last = &quot;buffer&quot;;&#xA;')"/>
       <xsl:value-of select="string('  bufferAppend(buffer, yytext);&#xA;  yy_push_state(C')"/>
@@ -121,6 +136,9 @@
       <xsl:value-of select="string('&#x9;{&#xA;')"/>
       <xsl:if test="./@eos = string('yes')">
         <xsl:value-of select="string('  isDot = true;&#xA;')"/>
+      </xsl:if>
+      <xsl:if test="./@eoh = string('yes')">
+	<xsl:value-of select="string('  isEoh = true;&#xA;')"/>
       </xsl:if>
       <xsl:value-of select="string('  last = &quot;buffer&quot;;&#xA;')"/>
       <xsl:value-of select="string('  bufferAppend(buffer, yytext);&#xA;}&#xA;')"/>
@@ -152,19 +170,23 @@ extern "C" {
 #ifndef GENFORMAT
 #include "apertium_config.h"
 #endif
+#include &lt;utf8/utf8.h&gt;
 #include &lt;apertium/unlocked_cstdio.h&gt;
 #ifdef _WIN32
 #include &lt;io.h&gt;
 #include &lt;fcntl.h&gt;
+#define utf8to32 utf8to16
+#define utf32to8 utf16to8
 #endif
 
 using namespace std;
 
 wstring buffer;
 string symbuf;
-bool isDot, hasWrite_dot, hasWrite_white;
+bool isDot, isEoh, hasWrite_dot, hasWrite_white;
 bool eosIncond;
 bool noDot;
+bool markEoh;
 FILE *formatfile;
 string last;
 int current;
@@ -181,34 +203,10 @@ regex_t names_regexp;
 void bufferAppend(wstring &amp;buf, string const &amp;str)
 {
   symbuf.append(str);
-
-  for(size_t i = 0, limit = symbuf.size(); i &lt; limit;)
-  {
-    wchar_t symbol;
-    int gap = mbtowc(&amp;symbol, symbuf.c_str() + i, MB_CUR_MAX);
-    if(gap == -1)
-    {
-      if(i + MB_CUR_MAX &lt; limit)
-      {
-        buf += L'?';
-        gap = 1;
-      }
-      else
-      {
-        symbuf = symbuf.substr(i);
-        return;
-      }
-    }
-    else
-    {
-      buf += symbol;
-    }
-
-    i += gap;
+  if (utf8::is_valid(symbuf.begin(), symbuf.end())) {
+  	utf8::utf8to32(symbuf.begin(), symbuf.end(), std::back_inserter(buf));
+  	symbuf.clear();
   }
-
-  symbuf = "";
-  return;
 }
 
 
@@ -269,14 +267,8 @@ wstring escape(string const &amp;str)
   {
     bufferAppend(result, str.substr(base, pmatch.rm_so));
     result += L'\\';
-    wchar_t micaracter;
-    int pos = mbtowc(&amp;micaracter, str.c_str() + base + pmatch.rm_so, MB_CUR_MAX);
-    if(pos == -1)
-    {
-      wcerr &lt;&lt; L"Uno" &lt;&lt; endl;
-      wcerr &lt;&lt; L"Encoding error." &lt;&lt; endl;
-      exit(EXIT_FAILURE);
-    }
+    const char *mb = str.c_str() + base + pmatch.rm_so;
+    wchar_t micaracter = utf8::next(mb, mb+4);
 
     result += micaracter;
     base += pmatch.rm_eo;
@@ -289,24 +281,7 @@ wstring escape(string const &amp;str)
 wstring escape(wstring const &amp;str)
 {
   string dest;
-
-  for(size_t i = 0, limit = str.size(); i &lt; limit; i++)
-  {
-#ifdef __GNUC__
-    char symbol[MB_CUR_MAX+1];
-#else
-    std::string _symbol(MB_CUR_MAX+1, 0);
-    char *symbol = &amp;_symbol[0];
-#endif
-    int pos = wctomb(symbol, str[i]);
-    if(pos == -1)
-    {
-      symbol[0]='?';
-      pos = 1;
-    }
-    symbol[pos] = 0;
-    dest.append(symbol);
-  }
+  utf8::utf32to8(str.begin(), str.end(), std::back_inserter(dest));
   return escape(dest);
 }
 
@@ -353,19 +328,8 @@ int get_index(string end_tag){
   size_t pos;
 
   for (int i=tags.size()-1; i >= 0; i--) {
-    // a wchar to char conversion can be up to 4 times larger
-    char *tmp = new char (sizeof(char)*((tags[i].size()+1) * 4));
-    // Keep the existing memset. Better safe than sorry.
-    memset(tmp, '\0', tags[i].size() + 1);
-
-    pos = wcstombs(tmp, tags[i].c_str(), tags[i].size());
-    if (pos == (size_t)-1)
-    {
-      wcerr &lt;&lt; L"Encoding error." &lt;&lt; endl;
-      exit(EXIT_FAILURE);
-    }
-    new_end_tag = tmp;
-    delete[] tmp;
+    new_end_tag.clear();
+    utf8::utf32to8(tags[i].begin(), tags[i].end(), std::back_inserter(new_end_tag));
 
     if (get_tagName(end_tag) == get_tagName(new_end_tag))
       return i;
@@ -397,17 +361,8 @@ void printBuffer(int ind=-1, string end_tag="")
   wstring wend_tag;
   size_t pos;
   int num;
-  wchar_t result[end_tag.size() + 1];
 
-  // Convert end_tag to wstring
-  pos = mbstowcs(result, end_tag.c_str(), end_tag.size());
-  if (pos == (size_t) -1)
-  {
-    wcerr &lt;&lt; L"Encoding error." &lt;&lt; endl;
-    exit(EXIT_FAILURE);
-  }
-  result[pos] = L'\0';
-  wend_tag = result;
+  utf8::utf8to32(end_tag.begin(), end_tag.end(), std::back_inserter(wend_tag));
 
   if (ind != -1 &amp;&amp; ind == tags.size()-1 &amp;&amp;
       offsets[ind] == offset &amp;&amp; orders[ind] == current)
@@ -425,6 +380,7 @@ void printBuffer(int ind=-1, string end_tag="")
   }
   else
   {
+    // isEoh handling TODO matxin format
     if (hasWrite_dot &amp;&amp; isDot)
     {
       swprintf(tag, 250, L"&lt;empty-tag offset=\"%d\"/&gt;\n", offset+1);
@@ -523,6 +479,11 @@ void preDot()
 
 void printBuffer()
 {
+  if(isEoh &amp;&amp; markEoh)
+  {
+    fputws_unlocked(L"[]\x2761", yyout);
+    isEoh = false;
+  }
   if(isDot &amp;&amp; !eosIncond)
   {
     if(noDot)
@@ -538,23 +499,15 @@ void printBuffer()
   if(buffer.size() &gt; <xsl:value-of select="/format/options/largeblocks/@size"/>)
   {
     string filename = tmpnam(NULL);
-    FILE *largeblock = fopen(filename.c_str(), "w");
+    FILE *largeblock = fopen(filename.c_str(), "wb");
     fputws_unlocked(buffer.c_str(), largeblock);
     fclose(largeblock);
     preDot();
     fputwc_unlocked(L'[', yyout);
     fputwc_unlocked(L'@', yyout);
-    wchar_t cad[filename.size()];
-    size_t pos = mbstowcs(cad, filename.c_str(), filename.size());
-    if(pos == (size_t) -1)
-    {
-      wcerr &lt;&lt; L"Tres" &lt;&lt; endl;
-
-      wcerr &lt;&lt; L"Encoding error." &lt;&lt; endl;
-      exit(EXIT_FAILURE);
-    }
-    cad[pos] = 0;
-    fputws_unlocked(cad, yyout);
+    std::wstring cad;
+    utf8::utf8to32(filename.begin(), filename.end(), std::back_inserter(cad));
+    fputws_unlocked(cad.c_str(), yyout);
     fputwc_unlocked(L']', yyout);
   }
   else if(buffer.size() &gt; 1)
@@ -687,15 +640,8 @@ void printBuffer()
   printBuffer();
   fputwc_unlocked(L'\\', yyout);
   offset++;
-  wchar_t symbol;
-  int pos = mbtowc(&amp;symbol, yytext, MB_CUR_MAX);
-  if(pos == -1)
-  {
-      wcerr &lt;&lt; L"Cuatro" &lt;&lt; endl;
-
-    wcerr &lt;&lt; L"Encoding error." &lt;&lt; endl;
-    exit(EXIT_FAILURE);
-  }
+  const char *mb = yytext;
+  wchar_t symbol = utf8::next(mb, mb+4);
 
   fputwc_unlocked(symbol, yyout);
   offset++;
@@ -706,22 +652,11 @@ void printBuffer()
 .&#x9;{
   printBuffer();
   symbuf += yytext;
-  wchar_t symbol;
-  int pos = mbtowc(&amp;symbol, symbuf.c_str(), MB_CUR_MAX);
-  if(pos == -1)
-  {
-    if(symbuf.size() > (size_t) MB_CUR_MAX)
-    {
-      // unknown character
-      symbuf = "";
-      fputwc_unlocked(L'?', yyout);
-      offset++;
-      hasWrite_dot = hasWrite_white = true;
-    }
-  }
-  else
-  {
-    symbuf = "";
+
+  if (utf8::is_valid(symbuf.begin(), symbuf.end())) {
+    const char *mb = symbuf.c_str();
+    wchar_t symbol = utf8::next(mb, mb+4);
+    symbuf.clear();
     fputwc_unlocked(symbol, yyout);
     offset++;
     hasWrite_dot = hasWrite_white = true;
@@ -746,7 +681,7 @@ void usage(string const &amp;progname)
   wcerr &lt;&lt; "USAGE: " &lt;&lt; progname &lt;&lt; " format_file [input_file [output_file]" &lt;&lt; ']' &lt;&lt; endl;
   </xsl:when>
   <xsl:otherwise>
-  wcerr &lt;&lt; "USAGE: " &lt;&lt; progname &lt;&lt; " [ -h | -i | -n ] [input_file [output_file]" &lt;&lt; ']' &lt;&lt; endl;
+  wcerr &lt;&lt; "USAGE: " &lt;&lt; progname &lt;&lt; " [ -h | -o | -i | -n ] [input_file [output_file]" &lt;&lt; ']' &lt;&lt; endl;
   </xsl:otherwise>
 </xsl:choose>
   wcerr &lt;&lt; "<xsl:value-of select="./@name"/> format processor " &lt;&lt; endl;
@@ -761,15 +696,27 @@ int main(int argc, char *argv[])
 
   if(argc &gt;= 2)
   {
-    if(!strcmp(argv[1],"-i"))
+    while(1+base &lt; argc)
     {
-      eosIncond = true;
-      base++;
-    }
-    else if(!strcmp(argv[1],"-n"))
-    {
-      noDot = true;
-      base++;
+      if(!strcmp(argv[1+base],"-i"))
+      {
+        eosIncond = true;
+        base++;
+      }
+      else if(!strcmp(argv[1+base],"-n"))
+      {
+        noDot = true;
+        base++;
+      }
+      else if(!strcmp(argv[1+base],"-o"))
+      {
+        markEoh = true;
+        base++;
+      }
+      else
+      {
+        break;
+      }
     }
   }
 <xsl:choose>
@@ -782,19 +729,19 @@ int main(int argc, char *argv[])
   switch(argc-base)
   {
     case 4:
-      yyout = fopen(argv[3+base], "w");
+      yyout = fopen(argv[3+base], "wb");
       if(!yyout)
       {
         usage(argv[0]);
       }
     case 3:
-      yyin = fopen(argv[2+base], "r");
+      yyin = fopen(argv[2+base], "rb");
       if(!yyin)
       {
         usage(argv[0]);
       }
     case 2:
-      formatfile = fopen(argv[1+base], "w");
+      formatfile = fopen(argv[1+base], "wb");
       if(!formatfile)
       {
         usage(argv[0]);
@@ -813,13 +760,13 @@ int main(int argc, char *argv[])
   switch(argc-base)
   {
     case 3:
-      yyout = fopen(argv[2+base], "w");
+      yyout = fopen(argv[2+base], "wb");
       if(!yyout)
       {
         usage(argv[0]);
       }
     case 2:
-      yyin = fopen(argv[1+base], "r");
+      yyin = fopen(argv[1+base], "rb");
       if(!yyin)
       {
         usage(argv[0]);
@@ -830,7 +777,7 @@ int main(int argc, char *argv[])
   }
   </xsl:otherwise>
 </xsl:choose>
-#ifdef _WIN32
+#ifdef _MSC_VER
   _setmode(_fileno(yyin), _O_U8TEXT);
   _setmode(_fileno(yyout), _O_U8TEXT);
 #endif
@@ -850,9 +797,9 @@ int main(int argc, char *argv[])
   fputws(L"&lt;format&gt;\n", formatfile);
 </xsl:if>
 
-  last = "";
-  buffer = L"";
-  isDot = hasWrite_dot = hasWrite_white = false;
+  last.clear();
+  buffer.clear();
+  isEoh = isDot = hasWrite_dot = hasWrite_white = false;
   current=0;
   offset = 0;
   init_escape();

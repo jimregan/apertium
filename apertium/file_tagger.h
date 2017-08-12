@@ -17,6 +17,7 @@
 #define FILE_TAGGER_H
 
 #include <apertium/tagger_data.h>
+#include <apertium/morpho_stream.h>
 
 #include <cstdio>
 #include <string>
@@ -31,18 +32,36 @@ public:
   void set_debug(const bool &Debug);
   void set_show_sf(const bool &ShowSuperficial);
   void setNullFlush(const bool &NullFlush);
-  virtual void tagger(FILE *Input, FILE *Output, const bool &First = false) = 0;
+  virtual void tagger(FILE *Input, FILE *Output, const bool &First = false);
+  virtual void tagger(MorphoStream &morpho_stream, FILE *Output,
+                      const bool &First = false) = 0;
   virtual std::vector<std::wstring> &getArrayTags() = 0;
-  virtual void train(FILE *Corpus, unsigned long Count) = 0;
+  void init_and_train(MorphoStream &lexmorfo, unsigned long Count);
+  void init_and_train(FILE *Corpus, unsigned long Count);
+  virtual void train(FILE *Corpus, unsigned long Count);
+  virtual void train(MorphoStream &lexmorpho, unsigned long count) = 0;
+  virtual void train(MorphoStream &lexmorpho) = 0;
   virtual void serialise(FILE *Stream_) = 0;
-  void deserialise(char *const TaggerSpecificationFilename);
-  virtual void read_dictionary(FILE *Dictionary) = 0;
-  virtual void init_probabilities_from_tagged_text_(FILE *TaggedCorpus,
-                                                    FILE *Corpus) = 0;
-  virtual void init_probabilities_kupiec_(FILE *Corpus) = 0;
+  void deserialise(string const &TaggerSpecificationFilename);
+  virtual void init_probabilities_from_tagged_text_(
+      FILE *TaggedCorpus, FILE *Corpus);
+  virtual void init_probabilities_from_tagged_text_(
+      MorphoStream &stream_tagged,
+      MorphoStream &stream_untagged) = 0;
+  virtual void init_probabilities_kupiec_(FILE *Corpus);
+  virtual void init_probabilities_kupiec_(MorphoStream &lexmorfo) = 0;
+
+  /** It reads the expanded dictionary received as a parameter and calculates
+   *  the set of ambiguity classes that the tagger will manage.
+   *  @param is the input stream with the expanded dictionary to read
+   */
+  void read_dictionary(FILE *is);
+
+  virtual TaggerData& get_tagger_data() = 0;
 
 protected:
   virtual void deserialise(const TaggerData &Deserialised_FILE_Tagger) = 0;
+  virtual void post_ambg_class_scan() = 0;
   bool debug;
   bool show_sf;
   bool null_flush;

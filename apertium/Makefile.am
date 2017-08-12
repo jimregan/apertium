@@ -20,6 +20,8 @@ h_sources = a.h \
 	    err_exception.h \
 	    exception.h \
 	    exception_type.h \
+	    feature_vec.h \
+	    feature_vec_averager.h \
 	    file_tagger.h \
 	    hmm.h \
 	    i.h \
@@ -32,8 +34,13 @@ h_sources = a.h \
 	    lswpost.h \
 	    morpheme.h \
 	    morpho_stream.h \
+	    mtx_reader.h \
+	    file_morpho_stream.h \
 	    optional.h \
+	    perceptron_spec.h \
+	    perceptron_tagger.h \
 	    postchunk.h \
+	    sentence_stream.h \
 	    serialiser.h \
 	    stream.h \
 	    stream_5_3_1_tagger.h \
@@ -42,12 +49,16 @@ h_sources = a.h \
 	    stream_5_3_1_tagger_trainer.h \
 	    stream_5_3_2_tagger_trainer.h \
 	    stream_5_3_3_tagger_trainer.h \
+	    stream_tagger.h \
+	    stream_tagger_trainer.h \
 	    streamed_type.h \
 	    string_utils.h \
+	    shell_utils.h \
 	    tag.h \
 	    tagger_data.h \
 	    tagger_data_hmm.h \
 	    tagger_data_lsw.h \
+	    tagger_data_percep_coarse_tags.h \
 	    tagger_utils.h \
 	    tagger_word.h \
 	    tmx_aligner_tool.h \
@@ -76,8 +87,10 @@ h_sources = a.h \
 	    ttag.h \
 	    unlocked_cstdio.h \
 	    utf_converter.h \
+	    utils.h \
 	    wchar_t_exception.h \
-	    wchar_t_exception_type.h
+	    wchar_t_exception_type.h\
+	    xml_reader.h
 
 #DEPR.:
 #	    lextor_data.h
@@ -99,6 +112,8 @@ cc_sources = a.cc \
 	     constant_manager.cc \
 	     endian_double_util.cc \
 	     exception_type.cc \
+	     feature_vec.cc \
+	     feature_vec_averager.cc \
 	     file_tagger.cc \
 	     hmm.cc \
 	     i.cc \
@@ -110,7 +125,12 @@ cc_sources = a.cc \
 	     lswpost.cc \
 	     morpheme.cc \
 	     morpho_stream.cc \
+	     mtx_reader.cc \
+	     file_morpho_stream.cc \
+	     perceptron_spec.cc \
+	     perceptron_tagger.cc \
 	     postchunk.cc \
+	     sentence_stream.cc \
 	     stream.cc \
 	     stream_5_3_1_tagger.cc \
 	     stream_5_3_2_tagger.cc \
@@ -118,11 +138,15 @@ cc_sources = a.cc \
 	     stream_5_3_1_tagger_trainer.cc \
 	     stream_5_3_2_tagger_trainer.cc \
 	     stream_5_3_3_tagger_trainer.cc \
+	     stream_tagger.cc \
+	     stream_tagger_trainer.cc \
 	     string_utils.cc \
+	     shell_utils.cc \
 	     tag.cc \
 	     tagger_data.cc \
 	     tagger_data_hmm.cc \
 	     tagger_data_lsw.cc \
+	     tagger_data_percep_coarse_tags.cc \
 	     tagger_utils.cc \
 	     tagger_word.cc \
 	     tmx_aligner_tool.cc \
@@ -144,7 +168,8 @@ cc_sources = a.cc \
 	     trx_reader.cc \
 	     tsx_reader.cc \
 	     utf_converter.cc \
-	     wchar_t_exception_type.cc
+	     wchar_t_exception_type.cc\
+	     xml_reader.cc
 #DEPR.:
 #	     lextor.cc
 #	     lextor_data.cc
@@ -185,6 +210,7 @@ bin_PROGRAMS = apertium-deshtml \
 	       apertium-filter-ambiguity \
 	       apertium-interchunk \
 	       apertium-multiple-translations \
+	       apertium-perceptron-trace \
 	       apertium-postchunk \
 	       apertium-postlatex \
 	       apertium-postlatex-raw \
@@ -205,10 +231,16 @@ bin_PROGRAMS = apertium-deshtml \
 	       apertium-tagger \
 	       apertium-tagger-apply-new-rules \
 	       apertium-tagger-readwords \
+	       apertium-perceptron-trace \
 	       apertium-tmxbuild \
 	       apertium-transfer
 
-bin_SCRIPTS =  $(GENERATEDSCRIPTS)
+bin_SCRIPTS =  $(GENERATEDSCRIPTS) apertium-get/apertium-get
+
+# Workaround for git-svn clone not getting externals; should do
+# nothing in normal SVN checkouts
+apertium-get/apertium-get:
+	svn checkout https://github.com/unhammer/apertium-get/trunk apertium-get
 
 instdir = apertium
 
@@ -226,7 +258,7 @@ apertium_DATA = deformat.xsl reformat.xsl new2old.xsl lexchoice.xsl \
 
 apertium_pretransfer_SOURCES = apertium_pretransfer.cc
 apertium_multiple_translations_SOURCES = apertium-multiple-translations.cc
-apertium_multiple_translations_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_multiple_translations_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 apertium_destxt_SOURCES = apertium_destxt.cc
 apertium_retxt_SOURCES = apertium_retxt.cc
 apertium_deshtml_SOURCES = apertium_deshtml.cc
@@ -249,61 +281,64 @@ apertium_repptx_SOURCES = apertium_repptx.cc
 apertium_desmediawiki_SOURCES = apertium_desmediawiki.cc
 apertium_remediawiki_SOURCES = apertium_remediawiki.cc
 apertium_prelatex_SOURCES = apertium_prelatex.cc
-apertium_prelatex_LDADD= $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_prelatex_LDADD= $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 apertium_postlatex_SOURCES = apertium_postlatex.cc
-apertium_postlatex_LDADD= $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_postlatex_LDADD= $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 apertium_postlatex_raw_SOURCES = apertium_postlatex_raw.cc
-apertium_postlatex_raw_LDADD= $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_postlatex_raw_LDADD= $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 apertium_tagger_SOURCES = apertium_tagger.cc
-apertium_tagger_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_tagger_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
+
+apertium_perceptron_trace_SOURCES = apertium_perceptron_trace.cc
+apertium_perceptron_trace_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
 
 apertium_tmxbuild_SOURCES = apertium_tmxbuild.cc
-apertium_tmxbuild_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_tmxbuild_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 apertium_preprocess_transfer_SOURCES = transferpp.cc
 apertium_preprocess_transfer_LDADD = $(APERTIUM_LIBS) \
-                                     -lapertium$(GENERIC_MAJOR_VERSION)
+                                     -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 apertium_filter_ambiguity_SOURCES = apertium_filter_ambiguity.cc
 apertium_filter_ambiguity_LDADD = $(APERTIUM_LIBS) \
-                                  -lapertium$(GENERIC_MAJOR_VERSION)
+                                  -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 apertium_transfer_SOURCES = apertium_transfer.cc
-apertium_transfer_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_transfer_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 apertium_interchunk_SOURCES = apertium_interchunk.cc
-apertium_interchunk_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_interchunk_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 apertium_postchunk_SOURCES = apertium_postchunk.cc
-apertium_postchunk_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_postchunk_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 ###apertium_lextor_SOURCES = apertium_lextor.cc
-###apertium_lextor_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+###apertium_lextor_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 #apertium_lextor_eval_SOURCES = apertium-lextor-eval.C
-#apertium_lextor_eval_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+#apertium_lextor_eval_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 apertium_tagger_apply_new_rules_SOURCES = apertium_tagger_apply_new_rules.cc
-apertium_tagger_apply_new_rules_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_tagger_apply_new_rules_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 apertium_tagger_readwords_SOURCES = apertium_tagger_readwords.cc
-apertium_tagger_readwords_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+apertium_tagger_readwords_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 ###apertium_lextor_search_SOURCES = apertium-lextor-search.C
-###apertium_lextor_search_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+###apertium_lextor_search_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 ###pruebas_lextor_SOURCES = pruebas-lextor.C
-###pruebas_lextor_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+###pruebas_lextor_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 ###apertium_gen_wlist_lextor_translation_SOURCES = apertium_gen_wlist_lextor_translation.cc
-###apertium_gen_wlist_lextor_translation_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION)
+###apertium_gen_wlist_lextor_translation_LDADD = $(APERTIUM_LIBS) -lapertium$(GENERIC_MAJOR_VERSION) $(lib_LTLIBRARIES)
 
 
 if WINDOWS
-INCLUDES = -I$(top_srcdir)/apertium/win32 -I$(top_srcdir) $(APERTIUM_CFLAGS)
+INCLUDES = -I$(top_srcdir)/utf8 -I$(top_srcdir)/apertium/win32 -I$(top_srcdir) $(APERTIUM_CFLAGS)
 else
-INCLUDES = -I$(top_srcdir) $(APERTIUM_CFLAGS)
+AM_CPPFLAGS = -I$(top_srcdir) $(APERTIUM_CFLAGS)
 endif
 CLEANFILES = *~ apertium_destxt.cc apertium_retxt.cc apertium_deshtml.cc \
              apertium_rehtml.cc apertium_desrtf.cc apertium_rertf.cc \
@@ -482,7 +517,7 @@ apertium-validate-dictionary: Makefile.am validate-header.sh
 	@echo "#!$(BASH)" > $@
 	@cat validate-header.sh >> $@
 	@echo "# xsd is a non-final command, so just treated as a warning when compiling:" >> $@
-	@echo "$(XMLLINT) --schema \"$(prefix)\"/share/lttoolbox/dix.xsd --noout \"\$$FILE1\" | grep -vF ' fails to validate'" >> $@
+	@echo "$(XMLLINT) --schema \"$(prefix)\"/share/lttoolbox/dix.xsd --noout \"\$$FILE1\" 2>&1 | grep -ve ' validates$$' -e ' fails to validate$$'" >> $@
 	@echo "$(XMLLINT) --dtdvalid \"$(prefix)\"/share/lttoolbox/dix.dtd --noout \"\$$FILE1\"" >> $@
 	@chmod a+x $@
 

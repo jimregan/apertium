@@ -58,6 +58,7 @@ StreamedType Stream::get() {
   std::wstring Lemma;
   private_flush_ = false;
 
+  //TheCharacterStream.clear();
   if (!is_eof_throw_if_not_TheCharacterStream_good()) {
     while (true) {
       const wchar_t Character_ = TheCharacterStream.get();
@@ -623,7 +624,70 @@ StreamedType Stream::get() {
   return TheStreamedType;
 }
 
+StreamedType Stream::peek() {
+  bool prev_flush = private_flush_;
+  std::ios::iostate state = TheCharacterStream.rdstate();
+  int pos = TheCharacterStream.tellg();
+
+  StreamedType token = get();
+
+  TheCharacterStream.clear(state);
+  TheCharacterStream.seekg(pos);
+  private_flush_ = prev_flush;
+  return token;
+}
+
+bool Stream::peekIsBlank() {
+  std::ios::iostate state = TheCharacterStream.rdstate();
+  int pos = TheCharacterStream.tellg();
+
+  const wchar_t newline1 = TheCharacterStream.get();
+  const wchar_t newline2 = TheCharacterStream.get();
+
+  TheCharacterStream.clear(state);
+  TheCharacterStream.seekg(pos);
+
+  return newline1 == L'\n' && newline2 == L'\n';
+}
+
 bool Stream::flush_() const { return private_flush_; }
+
+void Stream::outputLexicalUnit(
+    const LexicalUnit &lexical_unit, const Optional<Analysis> analysis,
+    std::wostream &output, const basic_Tagger::Flags &flags) {
+  using namespace std::rel_ops;
+  output << L"^";
+
+  if (lexical_unit.TheAnalyses.empty() || !analysis) {
+    if (flags.getShowSuperficial())
+      output << lexical_unit.TheSurfaceForm << L"/";
+
+    output << L"*" << lexical_unit.TheSurfaceForm << L"$";
+    return;
+  }
+
+  if (flags.getMark()) {
+    if (lexical_unit.TheAnalyses.size() != 1)
+      output << L"=";
+  }
+
+  if (flags.getShowSuperficial())
+    output << lexical_unit.TheSurfaceForm << L"/";
+
+  output << *analysis;
+
+  if (flags.getFirst()) {
+    for (std::vector<Analysis>::const_iterator other_analysis =
+             lexical_unit.TheAnalyses.begin();
+         // Call .end() each iteration to save memory.
+         other_analysis != lexical_unit.TheAnalyses.end(); ++other_analysis) {
+      if (*other_analysis != *analysis)
+        output << L"/" << *other_analysis;
+    }
+  }
+
+  output << L"$";
+}
 
 Stream::PreviousCaseType::PreviousCaseType(const wchar_t &PreviousCase_)
     : ThePreviousCase(PreviousCase_), isPreviousCharacter(true) {}
@@ -633,6 +697,10 @@ bool Stream::is_eof_throw_if_not_TheCharacterStream_good() const {
     return true;
 
   if (!TheCharacterStream) {
+    std::wcerr << L"State bad " << TheCharacterStream.good() << " "
+                                << TheCharacterStream.eof() << " "
+                                << TheCharacterStream.fail() << " "
+                                << TheCharacterStream.bad() << "\n";
     std::wstringstream Message;
     Message << L"can't get const wchar_t: TheCharacterStream not good";
     throw wchar_t_Exception::Stream::TheCharacterStream_not_good(

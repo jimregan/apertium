@@ -28,6 +28,10 @@
 #include <cerrno>
 #include <cstdlib>
 
+#ifdef _WIN32
+#include <utf8_fwrap.hpp>
+#endif
+
 using namespace Apertium;
 using namespace std;
 
@@ -494,7 +498,16 @@ Transfer::checkIndex(xmlNode *element, int index, int limit)
 { 
   if(index >= limit)
   {
-    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) <<L": line " << element->line << endl;
+    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) << L": line " << element->line << L": index >= limit" << endl;
+    return false;
+  }
+  if(index < 0) {
+    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) << L": line " << element->line << L": index < 0" << endl;
+    return false;
+  }
+  if(word[index] == 0)
+  {
+    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) << L": line " << element->line << L": Null access at word[index]" << endl;
     return false;
   }
   return true;
@@ -576,12 +589,11 @@ Transfer::evalString(xmlNode *element)
         return ti.getContent(); // just output what's specified in 'v' //tc
 
       case ti_b:
-        if(checkIndex(element, ti.getPos(), lblank))
+        if(ti.getPos() >= 0 && checkIndex(element, ti.getPos(), lblank))
         {
-          if(ti.getPos() >= 0)
-          {
-            return !blank?"":*(blank[ti.getPos()]);
-          }
+          return !blank?"":*(blank[ti.getPos()]);
+        }
+        else {
           return " ";
         }
         break;
@@ -1188,11 +1200,15 @@ Transfer::processLet(xmlNode *localroot)
         return;
 
       case ti_clip_sl:
-        word[ti.getPos()]->setSource(attr_items[ti.getContent()], evalString(rightSide), ti.getCondition());
+        if (checkIndex(leftSide, ti.getPos(), lword)) {
+          word[ti.getPos()]->setSource(attr_items[ti.getContent()], evalString(rightSide), ti.getCondition());
+        }
         return;
 
       case ti_clip_tl:
-        word[ti.getPos()]->setTarget(attr_items[ti.getContent()], evalString(rightSide), ti.getCondition());
+        if (checkIndex(leftSide, ti.getPos(), lword)) {
+          word[ti.getPos()]->setTarget(attr_items[ti.getContent()], evalString(rightSide), ti.getCondition());
+        }
         return;
 
       default:
@@ -1236,6 +1252,15 @@ Transfer::processLet(xmlNode *localroot)
       {
         as = i->children->content;
       }
+    }
+
+    if (pos >= lword) {
+      wcerr << L"Error: Transfer::processLet() bad access on pos >= lword" << endl;
+      return;
+    }
+    if (word[pos] == 0) {
+      wcerr << L"Error: Transfer::processLet() null access on word[pos]" << endl;
+      return;
     }
 
     if(!xmlStrcmp(side, (const xmlChar *) "tl"))
@@ -1363,13 +1388,14 @@ Transfer::processCallMacro(xmlNode *localroot)
       break;
     }
   }
-  
+
   // ToDo: Is it at all valid if npar <= 0 ?
 
   TransferWord **myword = NULL;
   if(npar > 0)
   {
     myword = new TransferWord *[npar];
+    std::fill(myword, myword+npar, (TransferWord *)(0));
   }
   string **myblank = NULL;
   if(npar > 0)
@@ -1384,6 +1410,10 @@ Transfer::processCallMacro(xmlNode *localroot)
   {
     if(i->type == XML_ELEMENT_NODE)
     {
+      if (idx >= npar) {
+      	  wcerr << L"Error: processCallMacro() number of arguments >= npar at line " << i->line << endl;
+      	  return;
+      }
       int pos = atoi((const char *) i->properties->children->content)-1;
       myword[idx] = word[pos];
       if(idx-1 >= 0)
@@ -1410,7 +1440,7 @@ Transfer::processCallMacro(xmlNode *localroot)
   swap(myword, word);
   swap(myblank, blank);
   swap(npar, lword);
-  
+
   delete[] myword;
   delete[] myblank;
 }
@@ -2383,7 +2413,7 @@ Transfer::transfer(FILE *in, FILE *out)
           {
             wcerr << L" ";
           }
-          wcerr << *tmpword[ind];
+          fputws_unlocked(tmpword[ind]->c_str(), stderr);
         }
         wcerr << endl;
       }
@@ -2434,6 +2464,7 @@ Transfer::applyRule()
     if(i == 0)
     {
       word = new TransferWord *[limit];
+      std::fill(word, word+limit, (TransferWord *)(0));
       lword = limit;
       if(limit != 1)
       {
@@ -2655,6 +2686,7 @@ Transfer::applyRule()
     for(unsigned int i = 0; i != limit; i++)
     {
       delete word[i];
+      word[i] = 0; // ToDo: That this changes things means there are much bigger problems elsewhere
     }
     delete[] word;
   }
@@ -2663,6 +2695,7 @@ Transfer::applyRule()
     for(unsigned int i = 0; i != limit - 1; i++)
     {
       delete blank[i];
+      blank[i] = 0;
     }
     delete[] blank;
   }

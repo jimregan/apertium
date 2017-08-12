@@ -18,6 +18,7 @@
 #include "exception.h"
 #include "tag.h"
 
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,16 @@ bool operator<(const Morpheme &a, const Morpheme &b) {
     return a.TheLemma < b.TheLemma;
 
   return a.TheTags < b.TheTags;
+}
+
+std::wostream& operator<<(std::wostream& out, const Morpheme &morph) {
+  out << morph.TheLemma;
+  const std::vector<Tag> &tags = morph.TheTags;
+  std::vector<Tag>::const_iterator it = tags.begin();
+  for (; it != tags.end(); it++) {
+    out << L"<" << it->TheTag << L">";
+  }
+  return out;
 }
 
 Morpheme::operator std::wstring() const {

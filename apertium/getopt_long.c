@@ -35,7 +35,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
    USA.  */
 
-#include <apertium_config.h>
+#include "apertium_config.h"
 
 #ifndef HAVE_GETOPT_LONG
 /* We shouldn't be compiling this module in this case, but we clearly
@@ -414,7 +414,7 @@ exchange (argv)
 	{
 	  /* Bottom segment is the short one.  */
 	  int len = middle - bottom;
-	  register int i;
+	  int i;
 
 	  /* Swap it with the top part of the top segment.  */
 	  for (i = 0; i < len; i++)
@@ -431,7 +431,7 @@ exchange (argv)
 	{
 	  /* Top segment is the short one.  */
 	  int len = top - middle;
-	  register int i;
+	  int i;
 
 	  /* Swap it with the bottom part of the bottom segment.  */
 	  for (i = 0; i < len; i++)

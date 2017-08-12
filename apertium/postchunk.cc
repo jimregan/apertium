@@ -63,6 +63,7 @@ nwords(0)
   inword = false;
   null_flush = false;
   internal_null_flush = false;
+  trace = false;
 }
 
 Postchunk::~Postchunk()
@@ -212,9 +213,18 @@ Postchunk::collectMacros(xmlNode *localroot)
 bool
 Postchunk::checkIndex(xmlNode *element, int index, int limit)
 {
-  if(index > limit)
+  if(index > limit) // Note: Unlike transfer/interchunk, we allow index==limit!
   {
-    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) <<L": line " << element->line << endl;
+    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) << L": line " << element->line << L": index > limit" << endl;
+    return false;
+  }
+  if(index < 0) {
+    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) << L": line " << element->line << L": index < 0" << endl;
+    return false;
+  }
+  if(word[index] == 0)
+  {
+    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) << L": line " << element->line << L": Null access at word[index]" << endl;
     return false;
   }
   return true;
@@ -249,12 +259,11 @@ Postchunk::evalString(xmlNode *element)
         return ti.getContent();
         
       case ti_b:
-        if(checkIndex(element, ti.getPos(), lblank))
+        if(ti.getPos() >= 0 && checkIndex(element, ti.getPos(), lblank))
         {
-          if(ti.getPos() >= 0)
-          {
-            return !blank?"":*(blank[ti.getPos()]);
-          }
+          return !blank?"":*(blank[ti.getPos()]);
+        }
+        else {
           return " ";
         }
         break;
@@ -747,6 +756,7 @@ Postchunk::processCallMacro(xmlNode *localroot)
 
   myword[0] = word[0];
   
+  bool indexesOK = true;
   int idx = 1;
   int lastpos = 0;
   for(xmlNode *i = localroot->children; i != NULL; i = i->next)
@@ -755,7 +765,8 @@ Postchunk::processCallMacro(xmlNode *localroot)
     {
       int pos = atoi((const char *) i->properties->children->content);
       if(!checkIndex(localroot, pos, lword)) {
-        pos=1; // for a rule to match, there has to be at least one word, so should be safe
+        indexesOK = false;      // avoid segfaulting on empty chunks, e.g. ^x<x>{}$
+        pos = 1;
       }
       myword[idx] = word[pos];
       if(blank)
@@ -772,12 +783,17 @@ Postchunk::processCallMacro(xmlNode *localroot)
   swap(myblank, blank);
   swap(npar, lword);
   
-  for(xmlNode *i = macro->children; i != NULL; i = i->next)
-  {
-    if(i->type == XML_ELEMENT_NODE)
+  if(indexesOK) {
+    for(xmlNode *i = macro->children; i != NULL; i = i->next)
     {
-      processInstruction(i);
+      if(i->type == XML_ELEMENT_NODE)
+      {
+        processInstruction(i);
+      }
     }
+  }
+  else {
+    wcerr << "Warning: Not calling macro \"" << n << "\" from line " << localroot->line << " (empty word?)" << endl;
   }
 
   swap(myword, word);
@@ -1530,6 +1546,12 @@ Postchunk::setNullFlush(bool null_flush)
 }
 
 void
+Postchunk::setTrace(bool trace)
+{
+  this->trace = trace;
+}
+
+void
 Postchunk::postchunk_wrapper_null_flush(FILE *in, FILE *out)
 {
   null_flush = false;
@@ -1597,6 +1619,20 @@ Postchunk::postchunk(FILE *in, FILE *out)
     {
       lastrule = rule_map[val-1];      
       last = input_buffer.getPos();
+
+      if(trace)
+      {
+        wcerr << endl << L"apertium-postchunk: Rule " << val << L" ";
+        for (unsigned int ind = 0; ind < tmpword.size(); ind++)
+        {
+          if (ind != 0)
+          {
+            wcerr << L" ";
+          }
+          fputws_unlocked(tmpword[ind]->c_str(), stderr);
+        }
+        wcerr << endl;
+      }
     }
 
     TransferToken &current = readToken(in);

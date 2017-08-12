@@ -20,15 +20,21 @@
 /ltmain.sh
 /missing
 
-/aclocal.m4
 /config.log
 /INSTALL
 /Makefile
 /Makefile.in
 
+/aclocal.m4
+/m4/libtool.m4
+/m4/ltoptions.m4
+/m4/ltsugar.m4
+/m4/ltversion.m4
+/m4/lt~obsolete.m4
+
 /*.pc
 
-# /apertium/
+# /apertium/wildcard
 /apertium/.libs
 
 /apertium/apertium
@@ -79,3 +85,11 @@
 /apertium/transfer.rnc
 
 /apertium/stamp-*
+
+# Tests
+/tests/**/Makefile.in
+/tests/**/Makefile
+/tests/**/.libs
+
+/tests/tagger/test-find-similar-ambiguity-class
+tests/data/nno-nob.t3x.bin

@@ -47,6 +47,10 @@ using namespace std;
 using namespace Apertium;
 using namespace tagger_utils;
 
+TaggerData& LSWPoST::get_tagger_data() {
+  return tdlsw;
+}
+
 void LSWPoST::deserialise(FILE *Serialised_FILE_Tagger) {
   tdlsw.read(Serialised_FILE_Tagger);
   eos = (tdlsw.getTagIndex())[L"TAG_SENT"];
@@ -63,19 +67,18 @@ void LSWPoST::deserialise(const TaggerData &Deserialised_FILE_Tagger) {
   eos = (tdlsw.getTagIndex())[L"TAG_SENT"];
 }
 
-void LSWPoST::init_probabilities_from_tagged_text_(FILE *TaggedCorpus,
-                                                   FILE *UntaggedCorpus) {
+void LSWPoST::init_probabilities_from_tagged_text_(MorphoStream &, MorphoStream &) {
   std::abort();
 }
 
-void LSWPoST::init_probabilities_kupiec_(FILE *Corpus) {
-  init_probabilities(Corpus);
+void LSWPoST::init_probabilities_kupiec_(MorphoStream &lexmorfo) {
+  init_probabilities(lexmorfo);
 }
 
-void LSWPoST::train(FILE *Corpus, unsigned long Count) {
-  for (; Count > 0; --Count) {
-    std::fseek(Corpus, 0, SEEK_SET);
-    train(Corpus);
+void LSWPoST::train(MorphoStream &morpho_stream, unsigned long count) {
+  for (; count > 0; --count) {
+    morpho_stream.rewind();
+    train(morpho_stream);
   }
 }
 
@@ -96,7 +99,7 @@ LSWPoST::set_eos(TTag t) {
 } 
 
 void
-LSWPoST::init_probabilities(FILE *ftxt) {
+LSWPoST::init_probabilities(MorphoStream &morpho_stream) {
 
   int N = tdlsw.getN();
   int nw = 0;
@@ -104,7 +107,6 @@ LSWPoST::init_probabilities(FILE *ftxt) {
   set<TTag> tags_left, tags_mid, tags_right;
   set<TTag>::iterator iter_left, iter_mid, iter_right;
   vector<vector<vector<double> > > para_matrix(N, vector<vector<double> >(N, vector<double>(N, 0)));
-  MorphoStream morpho_stream(ftxt, true, &tdlsw);
   int num_valid_seq = 0;
   
   word = new TaggerWord();          // word for tags left
@@ -225,8 +227,7 @@ bool LSWPoST::is_valid_seq(TTag left, TTag mid, TTag right) {
 }
 
 void
-LSWPoST::read_dictionary(FILE *fdic) {
-  tagger_utils::read_dictionary(fdic, tdlsw);
+LSWPoST::post_ambg_class_scan() {
   int N = (tdlsw.getTagIndex()).size();
   int M = (tdlsw.getOutput()).size();
   wcerr << N << L" states and " << M <<L" ambiguity classes\n";
@@ -236,7 +237,7 @@ LSWPoST::read_dictionary(FILE *fdic) {
 }
 
 void
-LSWPoST::train(FILE *ftxt) {
+LSWPoST::train(MorphoStream &morpho_stream) {
 
   int N = tdlsw.getN();
   int nw = 0;
@@ -244,7 +245,6 @@ LSWPoST::train(FILE *ftxt) {
   set<TTag> tags_left, tags_mid, tags_right;
   set<TTag>::iterator iter_left, iter_mid, iter_right;
   vector<vector<vector<double> > > para_matrix_new(N, vector<vector<double> >(N, vector<double>(N, 0)));
-  MorphoStream morpho_stream(ftxt, true, &tdlsw);
 
   word = new TaggerWord();          // word for tags left
   word->add_tag(eos, L"sent", tdlsw.getPreferRules());
@@ -330,11 +330,10 @@ LSWPoST::print_para_matrix() {
 }
 
 void 
-LSWPoST::tagger(FILE *Input, FILE *Output, const bool &First) {
+LSWPoST::tagger(MorphoStream &morpho_stream, FILE *Output, const bool &First) {
   TaggerWord *word_left = NULL, *word_mid = NULL, *word_right = NULL;
   set<TTag> tags_left, tags_mid, tags_right;
   set<TTag>::iterator iter_left, iter_mid, iter_right;
-  MorphoStream morpho_stream(Input, debug, &tdlsw);
   morpho_stream.setNullFlush(null_flush);                      
  
   word_left = new TaggerWord();          // word left
@@ -342,14 +341,12 @@ LSWPoST::tagger(FILE *Input, FILE *Output, const bool &First) {
   word_left->set_show_sf(show_sf);
   tags_left = word_left->get_tags();          // tags left
 
-  tags_left = require_similar_ambiguity_class(tdlsw, tags_left, *word_left, debug);
-  
+  warn_absent_ambiguity_class(tdlsw, tags_left, *word_left, debug);
   word_mid = morpho_stream.get_next_word(); // word mid
   word_mid->set_show_sf(show_sf);
   tags_mid = word_mid->get_tags();          // tags mid
 
-  tags_mid = require_similar_ambiguity_class(tdlsw, tags_mid, *word_mid, debug);
-
+  warn_absent_ambiguity_class(tdlsw, tags_mid, *word_mid, debug);
   if (morpho_stream.getEndOfFile()) {
     delete word_left;
     delete word_mid;
@@ -361,13 +358,14 @@ LSWPoST::tagger(FILE *Input, FILE *Output, const bool &First) {
   wstring micad;
 
   while (word_right) {
-
     tags_right = word_right->get_tags();
-    tags_right = require_similar_ambiguity_class(tdlsw, tags_right, *word_right, debug);
+    warn_absent_ambiguity_class(tdlsw, tags_right, *word_right, debug);
 
+    set<TTag> *tags_avail;
+    tags_avail = &tags_mid;
     double max = -1;
-    TTag tag_max = *tags_mid.begin();
-    for (iter_mid = tags_mid.begin(); iter_mid != tags_mid.end(); ++iter_mid) {
+    TTag tag_max = *tags_avail->begin();
+    for (iter_mid = tags_avail->begin(); iter_mid != tags_avail->end(); ++iter_mid) {
       double n = 0;
       for (iter_left = tags_left.begin(); iter_left != tags_left.end(); ++iter_left) {
         for (iter_right = tags_right.begin(); iter_right != tags_right.end(); ++iter_right) {

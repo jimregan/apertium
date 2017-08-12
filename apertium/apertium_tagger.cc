@@ -32,9 +32,11 @@
 #include "stream_5_3_2_tagger_trainer.h"
 #include "stream_5_3_3_tagger.h"
 #include "stream_5_3_3_tagger_trainer.h"
+#include <apertium/perceptron_tagger.h>
 #include <apertium/hmm.cc>
 #include <apertium/lswpost.h>
 #include <apertium/tagger_word.h>
+#include <apertium/shell_utils.h>
 
 #include <lttoolbox/lt_locale.h>
 
@@ -52,14 +54,13 @@
 #include <string>
 #include <unistd.h>
 
-#ifdef _MSC_VER
-#include <fcntl.h>
-#include <io.h>
-#endif // _MSC_VER
-
 namespace Apertium {
+using namespace ShellUtils;
+
+/** Top level argument parsing */
+
 apertium_tagger::apertium_tagger(int &argc, char **&argv)
-    : argc(argc), argv(argv), The_val(),
+    : argc(argc), argv(argv), The_val(), nonoptarg(),
 
       The_indexptr(), FunctionTypeTypeOption_indexptr(),
       FunctionTypeOption_indexptr(),
@@ -68,7 +69,7 @@ apertium_tagger::apertium_tagger(int &argc, char **&argv)
       TheFunctionTypeOptionArgument(0), TheFlags() {
   try {
     while (true) {
-      The_val = getopt_long(argc, argv, "dfgmpr:s:t:u:wz", longopts, &The_indexptr);
+      The_val = getopt_long(argc, argv, "bdfegmpr:s:t:u:wxz", longopts, &The_indexptr);
 
       if (The_val == -1)
         break;
@@ -76,9 +77,17 @@ apertium_tagger::apertium_tagger(int &argc, char **&argv)
       set_indexptr();
 
       switch (The_val) {
+      case 'b':
+        flagOptionCase(&basic_Tagger::Flags::getSentSeg,
+                       &basic_Tagger::Flags::setSentSeg);
+        break;
       case 'd':
         flagOptionCase(&basic_Tagger::Flags::getDebug,
                        &basic_Tagger::Flags::setDebug);
+        break;
+      case 'e':
+        flagOptionCase(&basic_Tagger::Flags::getSkipErrors,
+                       &basic_Tagger::Flags::setSkipErrors);
         break;
       case 'f':
         flagOptionCase(&basic_Tagger::Flags::getFirst,
@@ -127,6 +136,9 @@ apertium_tagger::apertium_tagger(int &argc, char **&argv)
       case 'w':
         functionTypeTypeOptionCase(SlidingWindow);
         break;
+      case 'x':
+        functionTypeTypeOptionCase(Perceptron);
+        break;
       case 'g':
         functionTypeOptionCase(Tagger);
         break;
@@ -154,6 +166,8 @@ apertium_tagger::apertium_tagger(int &argc, char **&argv)
       help();
       return;
     }
+
+    nonoptarg = argc - optind;
 
     switch (*TheFunctionType) {
     case Tagger:
@@ -185,6 +199,10 @@ apertium_tagger::apertium_tagger(int &argc, char **&argv)
       case SlidingWindow: {
         LSWPoST SlidingWindowTagger_;
         g_FILE_Tagger(SlidingWindowTagger_);
+      } break;
+      case Perceptron: {
+        PerceptronTagger perceptron(TheFlags);
+        g_StreamTagger(perceptron);
       } break;
       default:
         std::abort();
@@ -243,7 +261,11 @@ apertium_tagger::apertium_tagger(int &argc, char **&argv)
         std::stringstream what_;
         what_ << "invalid option -- 'w'";
         throw Exception::apertium_tagger::InvalidOption(what_);
-      }
+      } break;
+      case Perceptron: {
+        PerceptronTagger perceptron(TheFlags);
+        s_StreamTaggerTrainer(perceptron);
+      } break;
       default:
         std::abort();
       }
@@ -300,6 +322,13 @@ void apertium_tagger::help() {
 "                                      UNTAGGED_CORPUS\n"
 "\n"
 "  or:  apertium-tagger [OPTION]... -s 0                                        \\\n"
+"                                      DICTIONARY                               \\\n"
+"                                      TAGGER_SPECIFICATION                     \\\n"
+"                                      SERIALISED_TAGGER                        \\\n"
+"                                      TAGGED_CORPUS                            \\\n"
+"                                      UNTAGGED_CORPUS\n"
+"\n"
+"  or:  apertium-tagger [OPTION]... -s 0                                        \\\n"
 "                                   -u MODEL                                    \\\n"
 "                                      SERIALISED_TAGGER                        \\\n"
 "                                      TAGGED_CORPUS\n"
@@ -309,7 +338,6 @@ void apertium_tagger::help() {
 "                                      CORPUS                                   \\\n"
 "                                      TAGGER_SPECIFICATION                     \\\n"
 "                                      SERIALISED_TAGGER\n"
-"\n"
 "\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
 "\n";
@@ -328,6 +356,8 @@ void apertium_tagger::help() {
   std::wcerr << '\n';
   options_description_.clear();
   options_description_.push_back(std::make_pair("-w, --sliding-window", "use the Light Sliding Window algorithm"));
+  options_description_.push_back(std::make_pair("-x, --perceptron", "use the averaged perceptron algorithm"));
+  options_description_.push_back(std::make_pair("-e, --skip-on-error", "with -xs, ignore certain types of errors with the training corpus"));
   align::align_(options_description_);
   std::wcerr << '\n';
   options_description_.clear();
@@ -344,6 +374,26 @@ void apertium_tagger::help() {
   options_description_.push_back(std::make_pair("-h, --help", "display this help and exit"));
   align::align_(options_description_);
 }
+
+const struct option apertium_tagger::longopts[] = {
+    {"help", no_argument, 0, 'h'},
+    {"sent-seg", no_argument, 0, 'b'},
+    {"debug", no_argument, 0, 'd'},
+    {"skip-on-error", no_argument, 0, 'e'},
+    {"first", no_argument, 0, 'f'},
+    {"mark", no_argument, 0, 'm'},
+    {"show-superficial", no_argument, 0, 'p'},
+    {"null-flush", no_argument, 0, 'z'},
+    {"unigram", required_argument, 0, 'u'},
+    {"sliding-window", no_argument, 0, 'w'},
+    {"perceptron", no_argument, 0, 'x'},
+    {"tagger", no_argument, 0, 'g'},
+    {"retrain", required_argument, 0, 'r'},
+    {"supervised", required_argument, 0, 's'},
+    {"train", required_argument, 0, 't'},
+    {0, 0, 0, 0}};
+
+/** Utilities */
 
 std::string apertium_tagger::option_string(const int &indexptr_) {
   return option_string(longopts[indexptr_]);
@@ -373,21 +423,6 @@ void apertium_tagger::locale_global_() {
 #endif // defined __APPLE__
 #endif // defined __clang__
 }
-
-const struct option apertium_tagger::longopts[] = {
-    {"help", no_argument, 0, 'h'},
-    {"debug", no_argument, 0, 'd'},
-    {"first", no_argument, 0, 'f'},
-    {"mark", no_argument, 0, 'm'},
-    {"show-superficial", no_argument, 0, 'p'},
-    {"null-flush", no_argument, 0, 'z'},
-    {"unigram", required_argument, 0, 'u'},
-    {"sliding-window", no_argument, 0, 'w'},
-    {"tagger", no_argument, 0, 'g'},
-    {"retrain", required_argument, 0, 'r'},
-    {"supervised", required_argument, 0, 's'},
-    {"train", required_argument, 0, 't'},
-    {0, 0, 0, 0}};
 
 void apertium_tagger::set_indexptr() {
   if (The_val == longopts[The_indexptr].val)
@@ -449,7 +484,7 @@ void apertium_tagger::functionTypeOptionCase(
 
 void apertium_tagger::getIterationsArgument() {
   try {
-    TheFunctionTypeOptionArgument = optarg_unsigned_long();
+    TheFunctionTypeOptionArgument = optarg_unsigned_long("ITERATIONS");
   } catch (const ExceptionType &ExceptionType_) {
     std::stringstream what_;
     what_ << "invalid argument '" << optarg << "' for '" << option_string()
@@ -458,26 +493,26 @@ void apertium_tagger::getIterationsArgument() {
   }
 }
 
-unsigned long apertium_tagger::optarg_unsigned_long() const {
+static unsigned long parse_unsigned_long(const char *metavar, const char *val) {
   char *str_end;
   errno = 0;
-  unsigned long N_0 = std::strtoul(optarg, &str_end, 10);
+  unsigned long N_0 = std::strtoul(val, &str_end, 10);
 
   if (*str_end != '\0') {
     std::stringstream what_;
-    what_ << "can't convert char *optarg \"" << optarg << "\" to unsigned long";
+    what_ << "can't convert " << metavar << " \"" << val << "\" to unsigned long";
     throw Exception::apertium_tagger::str_end_not_eq_NULL(what_);
   }
 
-  if (*optarg == '\0') {
+  if (*val == '\0') {
     std::stringstream what_;
-    what_ << "can't convert char *optarg of size 1 \"\" to unsigned long";
+    what_ << "can't convert " << metavar << " of size 1 \"\" to unsigned long";
     throw Exception::apertium_tagger::optarg_eq_NULL(what_);
   }
 
   if (errno == ERANGE) {
     std::stringstream what_;
-    what_ << "can't convert char *optarg \"" << optarg
+    what_ << "can't convert " << metavar << " \"" << val
           << "\" to unsigned long, not in unsigned long range";
     throw Exception::apertium_tagger::ERANGE_(what_);
   }
@@ -485,53 +520,73 @@ unsigned long apertium_tagger::optarg_unsigned_long() const {
   return N_0;
 }
 
-template <typename T>
-static void try_open_fstream(const char *metavar, const char *filename,
-                             T &stream) {
-  stream.open(filename);
-  if (stream.fail()) {
-    std::stringstream what_;
-    what_ << "can't open " << metavar << " file \"" << filename << "\"";
-    throw Exception::apertium_tagger::open_stream_fail(what_);
+unsigned long apertium_tagger::optarg_unsigned_long(const char *metavar) {
+  return parse_unsigned_long(metavar, optarg);
+}
+
+void apertium_tagger::get_file_arguments(
+    bool get_crp_fn,
+    char **DicFn, char **CrpFn,
+    char **TaggedFn, char **UntaggedFn,
+    char **TsxFn, char **ProbFn) {
+  if (*TheFunctionType != Retrain) {
+    *DicFn = argv[optind++];
+  }
+  if (get_crp_fn) {
+    *CrpFn = argv[optind++];
+  }
+  if (*TheFunctionType == Supervised) {
+    *TsxFn = argv[optind++];
+    *ProbFn = argv[optind++];
+    *TaggedFn = argv[optind++];
+  }
+  *UntaggedFn = argv[optind++];
+  if (*TheFunctionType == Supervised && !get_crp_fn) {
+    *CrpFn = *UntaggedFn;
+  }
+  if (*TheFunctionType != Supervised) {
+    if (*TheFunctionType != Retrain) {
+      *TsxFn = argv[optind++];
+    }
+    *ProbFn = argv[optind++];
   }
 }
 
-static FILE *try_open_file(const char *metavar, const char *filename,
-                           const char *flags) {
-  FILE *f = std::fopen(filename, flags);
-  if (f == NULL) {
-    std::stringstream what_;
-    what_ << "can't open " << metavar << " file \"" << filename << "\"";
-    throw Exception::apertium_tagger::fopen(what_);
+void apertium_tagger::init_FILE_Tagger(FILE_Tagger &FILE_Tagger_, string const &TsxFn) {
+  FILE_Tagger_.deserialise(TsxFn);
+  FILE_Tagger_.set_debug(TheFlags.getDebug());
+  TaggerWord::setArrayTags(FILE_Tagger_.getArrayTags());
+}
+
+MorphoStream* apertium_tagger::setup_untagged_morpho_stream(
+    FILE_Tagger &FILE_Tagger_,
+    char *DicFn, char *UntaggedFn,
+    FILE **Dictionary, FILE **UntaggedCorpus) {
+  if (*TheFunctionType != Retrain) {
+    *Dictionary = try_open_file_utf8("DICTIONARY", DicFn, "r");
   }
-  return f;
+  *UntaggedCorpus = try_open_file_utf8("UNTAGGED_CORPUS", UntaggedFn, "r");
+
+  FILE_Tagger_.read_dictionary(*Dictionary);
+
+  return new FileMorphoStream(*UntaggedCorpus, true, &FILE_Tagger_.get_tagger_data());
 }
 
-static inline FILE *try_open_file_utf8(const char *metavar, const char *filename,
-                                       const char *flags) {
-  FILE *f = try_open_file(metavar, filename, flags);
-#ifdef _MSC_VER
-  _setmode(_fileno(f), _O_U8TEXT);
-#endif // _MSC_VER
-  return f;
-}
-
-static void try_close_file(const char *metavar, const char *filename, FILE *file) {
-  if (std::fclose(file) != 0) {
-    std::stringstream what_;
-    what_ << "can't close " << metavar << " file \"" << filename << "\"";
-    throw Exception::apertium_tagger::fclose(what_);
+void apertium_tagger::close_untagged_files(
+    char *DicFn, char *UntaggedFn,
+    FILE *Dictionary, FILE *UntaggedCorpus) {
+  if (*TheFunctionType == Supervised || *TheFunctionType == Train) {
+    try_close_file("DICTIONARY", DicFn, Dictionary);
   }
+  try_close_file("UNTAGGED_CORPUS", UntaggedFn, UntaggedCorpus);
 }
 
-void apertium_tagger::g_StreamTagger(basic_StreamTagger &StreamTagger_) {
+/** Implementation of flags/subcommands */
+
+void apertium_tagger::g_StreamTagger(StreamTagger &StreamTagger_) {
   locale_global_();
 
-  if (argc - optind < 1 || !(argc - optind < 4)) {
-    std::stringstream what_;
-    what_ << "expected 1, 2, or 3 file arguments, got " << argc - optind;
-    throw Exception::apertium_tagger::UnexpectedFileArgumentCount(what_);
-  }
+  expect_file_arguments(nonoptarg, 1, 4);
 
   std::ifstream SerialisedAnalysisFrequencies;
   try_open_fstream("SERIALISED_TAGGER", argv[optind],
@@ -546,7 +601,7 @@ void apertium_tagger::g_StreamTagger(basic_StreamTagger &StreamTagger_) {
     throw Exception::apertium_tagger::deserialise(what_);
   }
 
-  if (argc - optind < 2) {
+  if (nonoptarg < 2) {
     Stream Input(TheFlags);
     StreamTagger_.tag(Input, std::wcout);
     return;
@@ -555,7 +610,7 @@ void apertium_tagger::g_StreamTagger(basic_StreamTagger &StreamTagger_) {
   std::wifstream Input_stream;
   try_open_fstream("INPUT", argv[optind + 1], Input_stream);
 
-  if (argc - optind < 3) {
+  if (nonoptarg < 3) {
     Stream Input(TheFlags, Input_stream, argv[optind + 1]);
     StreamTagger_.tag(Input, std::wcout);
     return;
@@ -569,27 +624,37 @@ void apertium_tagger::g_StreamTagger(basic_StreamTagger &StreamTagger_) {
 }
 
 void apertium_tagger::s_StreamTaggerTrainer(
-    basic_StreamTaggerTrainer &StreamTaggerTrainer_) {
+    StreamTaggerTrainer &StreamTaggerTrainer_) {
   locale_global_();
 
-  if (TheFunctionTypeOptionArgument != 0) {
+  if (TheFunctionTypeOptionArgument != 0 && *TheFunctionTypeType != Perceptron) {
     std::stringstream what_;
     what_ << "invalid argument '" << TheFunctionTypeOptionArgument
           << "' for '--supervised'";
     throw Exception::apertium_tagger::InvalidArgument(what_);
   }
 
-  if (argc - optind < 2 || !(argc - optind < 3)) {
-    std::stringstream what_;
-    what_ << "expected 2 file arguments, got " << argc - optind;
-    throw Exception::apertium_tagger::UnexpectedFileArgumentCount(what_);
+  if (*TheFunctionTypeType == Perceptron) {
+    expect_file_arguments(nonoptarg, 4);
+  } else {
+    expect_file_arguments(nonoptarg, 2);
   }
 
   std::wifstream TaggedCorpus_stream;
   try_open_fstream("TAGGED_CORPUS", argv[optind + 1], TaggedCorpus_stream);
+  Stream TaggedCorpus(TheFlags, TaggedCorpus_stream, argv[optind + 1]);
 
-  Stream TaggedCorpus(TheFlags, TaggedCorpus_stream, argv[optind]);
-  StreamTaggerTrainer_.train(TaggedCorpus);
+  if (*TheFunctionTypeType == Perceptron) {
+    std::wifstream UntaggedCorpus_stream;
+    try_open_fstream("UNTAGGED_CORPUS", argv[optind + 2], UntaggedCorpus_stream);
+    Stream UntaggedCorpus(TheFlags, UntaggedCorpus_stream, argv[optind + 2]);
+
+    PerceptronTagger &pt = dynamic_cast<PerceptronTagger&>(StreamTaggerTrainer_);
+    pt.read_spec(argv[optind + 3]);
+    pt.train(TaggedCorpus, UntaggedCorpus, TheFunctionTypeOptionArgument);
+  } else {
+    StreamTaggerTrainer_.train(TaggedCorpus);
+  }
 
   std::ofstream Serialised_basic_Tagger;
   try_open_fstream("SERIALISED_TAGGER", argv[optind],
@@ -601,11 +666,7 @@ void apertium_tagger::s_StreamTaggerTrainer(
 void apertium_tagger::g_FILE_Tagger(FILE_Tagger &FILE_Tagger_) {
   LtLocale::tryToSetLocale();
 
-  if (argc - optind < 1 || !(argc - optind < 4)) {
-    std::stringstream what_;
-    what_ << "expected 1, 2, or 3 file arguments, got " << argc - optind;
-    throw Exception::apertium_tagger::UnexpectedFileArgumentCount(what_);
-  }
+  expect_file_arguments(nonoptarg, 1, 4);
 
   FILE *Serialised_FILE_Tagger =
       try_open_file("SERIALISED_TAGGER", argv[optind], "rb");
@@ -618,12 +679,12 @@ void apertium_tagger::g_FILE_Tagger(FILE_Tagger &FILE_Tagger_) {
   FILE_Tagger_.set_show_sf(TheFlags.getShowSuperficial());
   FILE_Tagger_.setNullFlush(TheFlags.getNullFlush());
 
-  if (argc - optind < 2)
+  if (nonoptarg < 2)
     FILE_Tagger_.tagger(stdin, stdout, TheFlags.getFirst());
   else {
     FILE *Input = try_open_file("INPUT", argv[optind + 1], "r");
 
-    if (argc - optind < 3)
+    if (nonoptarg < 3)
       FILE_Tagger_.tagger(Input, stdout, TheFlags.getFirst());
     else {
       FILE *Output = try_open_file_utf8("OUTPUT", argv[optind + 2], "w");
@@ -638,90 +699,116 @@ void apertium_tagger::g_FILE_Tagger(FILE_Tagger &FILE_Tagger_) {
 void apertium_tagger::r_FILE_Tagger(FILE_Tagger &FILE_Tagger_) {
   LtLocale::tryToSetLocale();
 
-  if (argc - optind < 2 || !(argc - optind < 3)) {
-    std::stringstream what_;
-    what_ << "expected 2 file arguments, got " << argc - optind;
-    throw Exception::apertium_tagger::UnexpectedFileArgumentCount(what_);
-  }
+  expect_file_arguments(nonoptarg, 2);
+
+  char *ProbFn, *UntaggedFn;
+
+  get_file_arguments(
+      false,
+      NULL, NULL, NULL, &UntaggedFn,
+      NULL, &ProbFn);
 
   FILE *Serialised_FILE_Tagger =
-      try_open_file("SERIALISED_TAGGER", argv[optind + 1], "rb");
+      try_open_file("SERIALISED_TAGGER", ProbFn, "rb");
   FILE_Tagger_.deserialise(Serialised_FILE_Tagger);
-  try_close_file("SERIALISED_TAGGER", argv[optind + 1], Serialised_FILE_Tagger);
+  try_close_file("SERIALISED_TAGGER", ProbFn, Serialised_FILE_Tagger);
 
   FILE_Tagger_.set_debug(TheFlags.getDebug());
   TaggerWord::setArrayTags(FILE_Tagger_.getArrayTags());
 
-  FILE *Corpus = try_open_file_utf8("CORPUS", argv[optind], "r");
-  FILE_Tagger_.train(Corpus, TheFunctionTypeOptionArgument);
-  try_close_file("CORPUS", argv[optind], Corpus);
+  FILE *UntaggedCorpus;
+  MorphoStream* ms = setup_untagged_morpho_stream(
+    FILE_Tagger_,
+    NULL, UntaggedFn,
+    NULL, &UntaggedCorpus);
+
+  FILE_Tagger_.train(*ms, TheFunctionTypeOptionArgument);
+  delete ms;
+  close_untagged_files(
+    NULL, UntaggedFn,
+    NULL, UntaggedCorpus);
 
   Serialised_FILE_Tagger =
-      try_open_file("SERIALISED_TAGGER", argv[optind + 1], "wb");
+      try_open_file("SERIALISED_TAGGER", ProbFn, "wb");
   FILE_Tagger_.serialise(Serialised_FILE_Tagger);
-  try_close_file("SERIALISED_TAGGER", argv[optind + 1], Serialised_FILE_Tagger);
+  try_close_file("SERIALISED_TAGGER", ProbFn, Serialised_FILE_Tagger);
 }
 
 void apertium_tagger::s_FILE_Tagger(FILE_Tagger &FILE_Tagger_) {
   LtLocale::tryToSetLocale();
 
-  if (argc - optind < 6 || !(argc - optind < 7)) {
-    std::stringstream what_;
-    what_ << "expected 6 file arguments, got " << argc - optind;
-    throw Exception::apertium_tagger::UnexpectedFileArgumentCount(what_);
+  if (TheFunctionTypeOptionArgument == 0) {
+    expect_file_arguments(nonoptarg, 5, 7);
+  } else {
+    expect_file_arguments(nonoptarg, 6);
   }
+  char *DicFn, *CrpFn, *TsxFn, *ProbFn, *TaggedFn, *UntaggedFn;
+  bool do_unsup = nonoptarg == 6;
 
-  FILE_Tagger_.deserialise(argv[optind + 2]);
-  FILE_Tagger_.set_debug(TheFlags.getDebug());
-  TaggerWord::setArrayTags(FILE_Tagger_.getArrayTags());
+  get_file_arguments(
+      do_unsup,
+      &DicFn, &CrpFn, &TaggedFn, &UntaggedFn,
+      &TsxFn, &ProbFn);
+  init_FILE_Tagger(FILE_Tagger_, TsxFn);
 
-  FILE *Dictionary = try_open_file("DICTIONARY", argv[optind], "r");
-  FILE_Tagger_.read_dictionary(Dictionary);
-  try_close_file("DICTIONARY", argv[optind], Dictionary);
+  FILE *Dictionary, *UntaggedCorpus;
+  MorphoStream* ms = setup_untagged_morpho_stream(
+    FILE_Tagger_,
+    DicFn, UntaggedFn,
+    &Dictionary, &UntaggedCorpus);
+  FILE *TaggedCorpus = try_open_file("TAGGED_CORPUS", TaggedFn, "r");
+  FileMorphoStream tms(TaggedCorpus, true, &FILE_Tagger_.get_tagger_data());
 
-  FILE *TaggedCorpus = try_open_file("TAGGED_CORPUS", argv[optind + 4], "r");
-  FILE *UntaggedCorpus = try_open_file("UNTAGGED_CORPUS", argv[optind + 5], "r");
-  FILE_Tagger_.init_probabilities_from_tagged_text_(TaggedCorpus,
-                                                    UntaggedCorpus);
-  try_close_file("TAGGED_CORPUS", argv[optind + 4], TaggedCorpus);
-  try_close_file("UNTAGGED_CORPUS", argv[optind + 5], UntaggedCorpus);
+  FILE_Tagger_.init_probabilities_from_tagged_text_(tms, *ms);
+  try_close_file("TAGGED_CORPUS", TaggedFn, TaggedCorpus);
+  delete ms;
+  close_untagged_files(
+    DicFn, UntaggedFn,
+    Dictionary, UntaggedCorpus);
 
-  FILE *Corpus = try_open_file_utf8("CORPUS", argv[optind + 1], "r");
-  FILE_Tagger_.train(Corpus, TheFunctionTypeOptionArgument);
-  try_close_file("CORPUS", argv[optind + 1], UntaggedCorpus);
+  if (do_unsup) {
+    FILE *Corpus = try_open_file_utf8("CORPUS", CrpFn, "r");
+    FILE_Tagger_.train(Corpus, TheFunctionTypeOptionArgument);
+    try_close_file("CORPUS", CrpFn, Corpus);
+ }
 
   FILE *Serialised_FILE_Tagger =
-      try_open_file("SERIALISED_TAGGER", argv[optind + 3], "wb");
+      try_open_file("SERIALISED_TAGGER", ProbFn, "wb");
   FILE_Tagger_.serialise(Serialised_FILE_Tagger);
-  try_close_file("SERIALISED_TAGGER", argv[optind + 3], UntaggedCorpus);
+  try_close_file("SERIALISED_TAGGER", ProbFn, Serialised_FILE_Tagger);
 }
 
 void apertium_tagger::t_FILE_Tagger(FILE_Tagger &FILE_Tagger_) {
   LtLocale::tryToSetLocale();
 
-  if (argc - optind < 4 || !(argc - optind < 5)) {
-    std::stringstream what_;
-    what_ << "expected 4 file arguments, got " << argc - optind;
-    throw Exception::apertium_tagger::UnexpectedFileArgumentCount(what_);
-  }
+  expect_file_arguments(nonoptarg, 4);
 
-  FILE_Tagger_.deserialise(argv[optind + 2]);
-  FILE_Tagger_.set_debug(TheFlags.getDebug());
-  TaggerWord::setArrayTags(FILE_Tagger_.getArrayTags());
+  char *DicFn, *TsxFn, *ProbFn, *UntaggedFn;
+  UntaggedFn = NULL;
 
-  FILE *Dictionary = try_open_file("DICTIONARY", argv[optind], "r");
-  FILE_Tagger_.read_dictionary(Dictionary);
-  try_close_file("DICTIONARY", argv[optind], Dictionary);
+  get_file_arguments(
+      false,
+      &DicFn, NULL, NULL, &UntaggedFn,
+      &TsxFn, &ProbFn);
+  init_FILE_Tagger(FILE_Tagger_, TsxFn);
 
-  FILE *Corpus = try_open_file_utf8("CORPUS", argv[optind + 1], "r");
-  FILE_Tagger_.init_probabilities_kupiec_(Corpus);
-  FILE_Tagger_.train(Corpus, TheFunctionTypeOptionArgument);
-  try_close_file("CORPUS", argv[optind + 1], Corpus);
+  FILE *Dictionary, *UntaggedCorpus;
+  MorphoStream* ms = setup_untagged_morpho_stream(
+    FILE_Tagger_,
+    DicFn, UntaggedFn,
+    &Dictionary, &UntaggedCorpus);
+
+  FILE_Tagger_.init_and_train(*ms, TheFunctionTypeOptionArgument);
+  delete ms;
+  close_untagged_files(
+    DicFn, UntaggedFn,
+    Dictionary, UntaggedCorpus);
 
   FILE *Serialised_FILE_Tagger =
-      try_open_file("SERIALISED_TAGGER", argv[optind + 3], "wb");
+      try_open_file("SERIALISED_TAGGER", ProbFn, "wb");
   FILE_Tagger_.serialise(Serialised_FILE_Tagger);
-  try_close_file("SERIALISED_TAGGER", argv[optind + 3], Serialised_FILE_Tagger);
+  try_close_file("SERIALISED_TAGGER", ProbFn, Serialised_FILE_Tagger);
+
 }
 }
 

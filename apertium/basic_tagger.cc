@@ -24,6 +24,14 @@ bool basic_Tagger::Flags::getDebug() const { return Debug; }
 
 void basic_Tagger::Flags::setDebug(const bool &Debug_) { Debug = Debug_; }
 
+bool basic_Tagger::Flags::getSentSeg() const { return SentSeg; }
+
+void basic_Tagger::Flags::setSentSeg(const bool &SentSeg_) { SentSeg = SentSeg_; }
+
+bool basic_Tagger::Flags::getSkipErrors() const { return SkipErrors; }
+
+void basic_Tagger::Flags::setSkipErrors(const bool &SkipErrors_) { SkipErrors = SkipErrors_; }
+
 bool basic_Tagger::Flags::getFirst() const { return First; }
 
 void basic_Tagger::Flags::setFirst(const bool &First_) { First = First_; }
@@ -43,6 +51,8 @@ bool basic_Tagger::Flags::getNullFlush() const { return NullFlush; }
 void basic_Tagger::Flags::setNullFlush(const bool &NullFlush_) {
   NullFlush = NullFlush_;
 }
+
+basic_Tagger::basic_Tagger() : TheFlags() {}
 
 basic_Tagger::basic_Tagger(const Flags &Flags_) : TheFlags(Flags_) {}
 }

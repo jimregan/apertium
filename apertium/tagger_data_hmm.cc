@@ -272,13 +272,13 @@ TaggerDataHMM::read(FILE *in)
   // read discards on ambiguity
   discard.clear();
 
-  int limit = Compression::multibyte_read(in);  
+  unsigned int limit = Compression::multibyte_read(in);  
   if(feof(in))
   {
     return;
   }
   
-  for(int i = 0; i < limit; i++)
+  for(unsigned int i = 0; i < limit; i++)
   {
     discard.push_back(Compression::wstring_read(in));
   }
@@ -388,7 +388,7 @@ TaggerDataHMM::write(FILE *out)
   
   // write pattern list
   plist.write(out);
-  
+
   // write discard list
   
   if(discard.size() != 0)
