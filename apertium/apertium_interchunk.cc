@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/interchunk.h>
 #include <lttoolbox/lt_locale.h>
@@ -26,7 +24,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <apertium/string_utils.h>
-#include <getopt.h>
+#include "getopt_long.h"
 
 #ifdef _MSC_VER
 #include <io.h>
@@ -38,14 +36,14 @@ using namespace std;
 
 void message(char *progname)
 {
-  cerr << "USAGE: " << basename(progname) << " [-tz] t2x preproc [input [output]]" << endl;
-  cerr << "  t2x        t2x rules file" << endl;
-  cerr << "  preproc    result of preprocess trules file" << endl;
-  cerr << "  input      input file, standard input by default" << endl;
-  cerr << "  output     output file, standard output by default" << endl;
-  cerr << "OPTIONS" <<endl;
-  cerr << "  -t         trace mode" << endl;
-  cerr << "  -z         flush buffer on '\0'" << endl;
+  wcerr << "USAGE: " << basename(progname) << " [-tz] t2x preproc [input [output]]" << endl;
+  wcerr << "  t2x        t2x rules file" << endl;
+  wcerr << "  preproc    result of preprocess trules file" << endl;
+  wcerr << "  input      input file, standard input by default" << endl;
+  wcerr << "  output     output file, standard output by default" << endl;
+  wcerr << "OPTIONS" <<endl;
+  wcerr << "  -t         trace mode" << endl;
+  wcerr << "  -z         flush buffer on '\0'" << endl;
 
   exit(EXIT_FAILURE);
 }
@@ -55,8 +53,8 @@ void testfile(string const &filename)
   struct stat mybuf;
   if(stat(filename.c_str(), &mybuf) == -1)
   {
-    cerr << "Error: can't stat file '";
-    cerr << filename << "'." << endl;
+    wcerr << "Error: can't stat file '";
+    wcerr << filename << "'." << endl;
     exit(EXIT_FAILURE);
   }
 }
@@ -66,8 +64,8 @@ FILE * open_input(string const &filename)
   FILE *input = fopen(filename.c_str(), "r");
   if(!input)
   {
-    cerr << "Error: can't open input file '";
-    cerr << filename.c_str() << "'." << endl;
+    wcerr << "Error: can't open input file '";
+    wcerr << filename.c_str() << "'." << endl;
     exit(EXIT_FAILURE);
   }
   
@@ -79,8 +77,8 @@ FILE * open_output(string const &filename)
   FILE *output = fopen(filename.c_str(), "w");
   if(!output)
   {
-    cerr << "Error: can't open output file '";
-    cerr << filename.c_str() << "'." << endl;
+    wcerr << "Error: can't open output file '";
+    wcerr << filename.c_str() << "'." << endl;
     exit(EXIT_FAILURE);
   }
   return output;
@@ -92,12 +90,9 @@ int main(int argc, char *argv[])
   
   Interchunk i;
 
-#if HAVE_GETOPT_LONG
   int option_index=0;
-#endif
 
   while (true) {
-#if HAVE_GETOPT_LONG
     static struct option long_options[] =
     {
       {"null-flush", no_argument, 0, 'z'},
@@ -107,9 +102,6 @@ int main(int argc, char *argv[])
     };
 
     int c=getopt_long(argc, argv, "zth", long_options, &option_index);
-#else
-    int c=getopt(argc, argv, "zth");
-#endif
     if (c == -1)
       break;
       

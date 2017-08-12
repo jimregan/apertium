@@ -13,9 +13,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <apertium/lextor_word.h>
@@ -85,7 +83,7 @@ wstring
 LexTorWord::translate(FSTProcessor& bildic, int lexchoice) {
   wstring t;
 
-  //cerr<<"In LexTorWord::translate, called with: "<<word<<", lexchoice: "<<lexchoice<<"\n";
+  //wcerr<<"In LexTorWord::translate, called with: "<<word<<", lexchoice: "<<lexchoice<<"\n";
 
   if (lexchoice<0)
     lexchoice=default_choice;
@@ -100,7 +98,7 @@ LexTorWord::translate(FSTProcessor& bildic, int lexchoice) {
 
   t=bildic.biltrans(lexical_choices[lexchoice], false);
 
-  //cerr<<"Translation: "<<t<<"\n";
+  //wcerr<<"Translation: "<<t<<"\n";
 
   return t;
 }
@@ -172,11 +170,11 @@ LexTorWord::next_word(wistream& is, FSTProcessor *fstp) {
     w.extract_lexical_choices(fstp);
 
   /*
-    cerr<<"word: "<<w.word<<"\n";
+    wcerr<<"word: "<<w.word<<"\n";
     for (unsigned int i=0; i<w.lexical_choices.size(); i++) {
-    cerr<<"Lex choice at "<<i<<": "<<w.lexical_choices[i]<<"\n";
+    wcerr<<"Lex choice at "<<i<<": "<<w.lexical_choices[i]<<"\n";
     }
-    cerr<<"Default: "<<w.default_choice<<"\n\n";
+    wcerr<<"Default: "<<w.default_choice<<"\n\n";
   */
 
   return new LexTorWord(w);

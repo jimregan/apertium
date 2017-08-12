@@ -14,14 +14,12 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <iostream>
 #include <fstream>
-#include <getopt.h>
+#include "getopt_long.h"
 
 #include <lttoolbox/fst_processor.h>
 
@@ -40,9 +38,9 @@ using namespace std;
 
 
 void help(char *name) {
-  cerr<<"USAGE:\n";
-  cerr<<name<<" --angle ang --reference reftext --parameters|-p model dic left right [--debug]\n\n";
-  cerr<<"ARGUMENTS: \n"
+  wcerr<<"USAGE:\n";
+  wcerr<<name<<" --angle ang --reference reftext --parameters|-p model dic left right [--debug]\n\n";
+  wcerr<<"ARGUMENTS: \n"
       <<"  --angle|-a: To specify the angle threshold to use............\n"
       <<"   --reference|-r: To specify the reference corpus used for evaluation (one word per\n"
       <<"               line with the correct translation sense for those words with more than one)\n"
@@ -57,7 +55,7 @@ void help(char *name) {
       <<"   --help|-h: Show this help\n"
       <<"   --version|-v: Show version information\n\n";
 
-  cerr<<"NOTE: It reads from the standard input the corpus to work with. That corpus must be\n"
+  wcerr<<"NOTE: It reads from the standard input the corpus to work with. That corpus must be\n"
       <<"      in the intermediate format used by Apertium.\n";
 }
 
@@ -85,14 +83,13 @@ int main(int argc, char* argv[]) {
   string words_file;
   string bildic_file;
 
-  //cerr<<"LOCALE: "<<setlocale(LC_ALL,"")<<"\n";
-  cerr<<"Command line: ";
+  //wcerr<<"LOCALE: "<<setlocale(LC_ALL,"")<<"\n";
+  wcerr<<"Command line: ";
   for(int i=0; i<argc; i++)
-    cerr<<argv[i]<<" ";
-  cerr<<"\n";
+    wcerr<<argv[i]<<" ";
+  wcerr<<"\n";
 
   while (true) {
-#if HAVE_GETOPT_LONG
     static struct option long_options[] =
       {
 	//{"input",       required_argument, 0, 'i'},
@@ -108,9 +105,6 @@ int main(int argc, char* argv[]) {
       };
 
     c=getopt_long(argc, argv, "r:p:w:a:e:dhv",long_options, &option_index);
-#else
-    c=getopt(argc, argv, "r:p:w:a:e:dhv");
-#endif
     if (c==-1)
       break;
       
@@ -152,8 +146,8 @@ int main(int argc, char* argv[]) {
       exit(EXIT_SUCCESS);
       break;
     case 'v':
-      cerr<<"APERTIUM"<<"\n"; //"APERTIUM" era PACKAGE_STRING
-      cerr<<"LICENSE:\n\n"
+      wcerr<<"APERTIUM"<<"\n"; //"APERTIUM" era PACKAGE_STRING
+      wcerr<<"LICENSE:\n\n"
 	  <<"   Copyright (C) 2006 Universitat d'Alacant / Universidad de Alicante\n\n"
 	  <<"   This program is free software; you can redistribute it and/or\n"
 	  <<"   modify it under the terms of the GNU General Public License as\n"
@@ -165,9 +159,7 @@ int main(int argc, char* argv[]) {
 	  <<"   General Public License for more details.\n"
 	  <<"\n"
 	  <<"   You should have received a copy of the GNU General Public License\n"
-	  <<"   along with this program; if not, write to the Free Software\n"
-	  <<"   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA\n"
-	  <<"   02111-1307, USA.\n";
+	  <<"   along with this program; if not, see <http://www.gnu.org/licenses/>.\n";
       exit(EXIT_SUCCESS);
       break;    
     default:
@@ -177,10 +169,10 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  cerr<<"TH ANGLE: "<<LexTor::angleth<<"\n";
+  wcerr<<"TH ANGLE: "<<LexTor::angleth<<"\n";
 
   if (ref_file=="") {
-    cerr<<"Error: No reference corpus was given\n";
+    wcerr<<"Error: No reference corpus was given\n";
     help(argv[0]);
     exit(EXIT_FAILURE);
   }
@@ -188,40 +180,40 @@ int main(int argc, char* argv[]) {
 
   fref.open(ref_file.c_str(), ios::in);
   if (fref.fail()) {
-    cerr<<"Error: Cannot open file '"<<ref_file<<"'\n";
+    wcerr<<"Error: Cannot open file '"<<ref_file<<"'\n";
     exit(EXIT_FAILURE);
   }
 
   if (mode==MODE_LEXTOR) {
     if (nwords_left<0) {
-      cerr<<"Error: no left-side context number of words was provided\n";
+      wcerr<<"Error: no left-side context number of words was provided\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
     if (nwords_right<0) {
-      cerr<<"Error: no right-side context number of words was provided\n";
+      wcerr<<"Error: no right-side context number of words was provided\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
     //if (in_file=="") {
-    //  cerr<<"Error: No input corpus was given\n";
+    //  wcerr<<"Error: No input corpus was given\n";
     //  help(argv[0]);
     //  exit(EXIT_FAILURE);
     //}
  
     if (model_file=="") {
-      cerr<<"Error: No model file was given\n";
+      wcerr<<"Error: No model file was given\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
     if (dic_file=="") {
-      cerr<<"Error: No dictionary file (bin format) was given\n";
+      wcerr<<"Error: No dictionary file (bin format) was given\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
 
     if (weight_exponent<0) {
-      cerr<<"Error: the weight exponent provided is less than zero. It must be positive\n";
+      wcerr<<"Error: the weight exponent provided is less than zero. It must be positive\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
@@ -230,20 +222,20 @@ int main(int argc, char* argv[]) {
 
     //fin.open(in_file.c_str(), ios::in);
     //if (fin.fail()) {
-    //  cerr<<"Error: Cannot open file '"<<in_file<<"'\n";
+    //  wcerr<<"Error: Cannot open file '"<<in_file<<"'\n";
     //  exit(EXIT_FAILURE);
     //}
 
     fmodel.open(model_file.c_str(), ios::in);
     if(fmodel.fail()) {
-      cerr<<"Error: Cannot open file '"<<model_file<<"'\n";
+      wcerr<<"Error: Cannot open file '"<<model_file<<"'\n";
       exit(EXIT_FAILURE);
     }
 
     FILE *fdic=NULL;
     fdic=fopen(dic_file.c_str(), "rb");
     if (!fdic) {
-      cerr<<"Error: Cannot open file '"<<dic_file<<"'\n";
+      wcerr<<"Error: Cannot open file '"<<dic_file<<"'\n";
       exit(EXIT_FAILURE);
     }
     FSTProcessor fstp;
@@ -273,37 +265,37 @@ int main(int argc, char* argv[]) {
 
   else if (mode==MODE_LEXTORTL) {
     if(stopwords_file=="") {
-      cerr<<"Error: no stopwords file was given\n";
+      wcerr<<"Error: no stopwords file was given\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
     if(words_file=="") {
-      cerr<<"Error: no words file was given\n";
+      wcerr<<"Error: no words file was given\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
     if(model_file=="") {
-      cerr<<"Error: no target-language model file was given\n";
+      wcerr<<"Error: no target-language model file was given\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
     if (dic_file=="") {
-      cerr<<"Error: No lexical-selection dictionary was provided\n";
+      wcerr<<"Error: No lexical-selection dictionary was provided\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
     if (bildic_file=="") {
-      cerr<<"Error: No bilingual dictionary was provided\n";
+      wcerr<<"Error: No bilingual dictionary was provided\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
     if (nwords_left<0) {
-      cerr<<"Error: no left-side context number of words was provided\n";
+      wcerr<<"Error: no left-side context number of words was provided\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
     if (nwords_right<0) {
-      cerr<<"Error: no right-side context number of words was provided\n";
+      wcerr<<"Error: no right-side context number of words was provided\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }
@@ -313,31 +305,31 @@ int main(int argc, char* argv[]) {
 
     fstopwords.open(stopwords_file.c_str(), ios::in);
     if (fstopwords.fail()) {
-      cerr<<"Error: Cannot open file '"<<stopwords_file<<"'\n";
+      wcerr<<"Error: Cannot open file '"<<stopwords_file<<"'\n";
       exit(EXIT_FAILURE);
     }
 
     fwords.open(words_file.c_str(), ios::in);
     if (fwords.fail()) {
-      cerr<<"Error: Cannot open file '"<<words_file<<"'\n";
+      wcerr<<"Error: Cannot open file '"<<words_file<<"'\n";
       exit(EXIT_FAILURE);
     }
 
     fmodel.open(model_file.c_str(), ios::in);
     if(fmodel.fail()) {
-      cerr<<"Error: Cannot open file '"<<model_file<<"'\n";
+      wcerr<<"Error: Cannot open file '"<<model_file<<"'\n";
       exit(EXIT_FAILURE);
     }
 
     fdic=fopen(dic_file.c_str(), "rb");
     if(!fdic) {
-      cerr<<"Error: Cannot open file '"<<dic_file<<"'\n";
+      wcerr<<"Error: Cannot open file '"<<dic_file<<"'\n";
       exit(EXIT_FAILURE);
     }
 
     fbildic=fopen(bildic_file.c_str(), "rb");
     if(!fbildic) {
-      cerr<<"Error: Cannot open file '"<<bildic_file<<"'\n";
+      wcerr<<"Error: Cannot open file '"<<bildic_file<<"'\n";
       exit(EXIT_FAILURE);
     }
 

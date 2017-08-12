@@ -6,6 +6,8 @@
 *                                                                        *
 *  Developed by Daniel Varga.                                            *
 *                                                                        *
+*  From hunalign; for license see ../AUTHORS and ../COPYING.hunalign     *
+*                                                                        *
 *************************************************************************/
 #include <apertium/tmx_dictionary.h>
 
@@ -20,7 +22,7 @@
 
 #include <cmath>
 
-#define massert(e) if (!(e)) { std::cerr << #e << " failed" << std::endl; throw "assert"; }
+#define massert(e) if (!(e)) { std::wcerr << #e << " failed" << std::endl; throw "assert"; }
 
 namespace TMXAligner
 {
@@ -149,7 +151,7 @@ void readBicorpus( std::istream& is, SentenceList& huSentenceList, SentenceList&
     split( line, halfs );
     if (halfs.size()!=2)
     {
-      std::cerr << "Incorrect bicorpus file: " << halfs.size() << " records in line " << huSentenceList.size() << std::endl;
+      std::wcerr << "Incorrect bicorpus file: " << halfs.size() << " records in line " << huSentenceList.size() << std::endl;
       throw "data error";
     }
 
@@ -563,7 +565,7 @@ void TransLex::build( const DictionaryItems& dictionaryItems )
       ++ignored;
     }
   }
-  std::cerr << added << " items added to TransLex, " << ignored << " multiword items ignored." << std::endl;
+  std::wcerr << added << " items added to TransLex, " << ignored << " multiword items ignored." << std::endl;
 }
 
 TransLex::DictInterval TransLex::lookupLeftWord ( const Word& huWord ) const

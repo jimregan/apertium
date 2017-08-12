@@ -1,9 +1,24 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!--
-  Draft of DTD for the structural transfer rule files 
+  Copyright (C) 2005 Universitat d'Alacant / Universidad de Alicante
   
-  Sergio Ortiz, Gema Ramírez-Sánchez, Mireia Ginestí, Mikel L. Forcada, 
-  2005.07.29. 
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License as
+  published by the Free Software Foundation; either version 2 of the
+  License, or (at your option) any later version.
+  
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, see <http://www.gnu.org/licenses/>.
+  
+   Draft of DTD for the structural transfer rule files 
+  
+   Sergio Ortiz, Gema Ramírez-Sánchez, Mireia Ginestí, Mikel L. Forcada, 
+   2005.07.29. 
 -->
 <grammar xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
   <define name="condition">
@@ -34,6 +49,7 @@
       <ref name="modify-case"/>
       <ref name="call-macro"/>
       <ref name="append"/>
+      <ref name="reject-current-rule"/>
     </choice>
   </define>
   <define name="value">
@@ -46,6 +62,9 @@
       <ref name="get-case-from"/>
       <ref name="case-of"/>
       <ref name="concat"/>
+      <ref name="lu"/>
+      <ref name="mlu"/>
+      <ref name="chunk"/>
     </choice>
   </define>
   <define name="stringvalue">
@@ -61,8 +80,12 @@
     <element name="transfer">
       <ref name="attlist.transfer"/>
       <ref name="section-def-cats"/>
-      <ref name="section-def-attrs"/>
-      <ref name="section-def-vars"/>
+      <optional>
+        <ref name="section-def-attrs"/>
+      </optional>
+      <optional>
+        <ref name="section-def-vars"/>
+      </optional>
       <optional>
         <ref name="section-def-lists"/>
       </optional>
@@ -354,10 +377,16 @@
       <attribute name="comment"/>
     </optional>
   </define>
+  <define name="attlist.rule" combine="interleave">
+    <optional>
+      <attribute name="c"/>
+    </optional>
+  </define>
   <!--
     Each rule has a pattern and an action 
     * attribute 'comment' allows to put in comments about the purpose of
-      the rule being defined
+      the rule being defined, this may be a rule specification in machine readable form
+    * attribute 'c' is for further comments in free form
   -->
   <define name="pattern">
     <element name="pattern">
@@ -974,6 +1003,29 @@
     <empty/>
   </define>
   <!-- Encloses a word inside an 'out' element. -->
+  <define name="reject-current-rule">
+    <element name="reject-current-rule">
+      <ref name="attlist.reject-current-rule"/>
+      <empty/>
+    </element>
+  </define>
+  <define name="attlist.reject-current-rule" combine="interleave">
+    <optional>
+      <attribute name="shifting">
+        <choice>
+          <value>yes</value>
+          <value>no</value>
+        </choice>
+      </attribute>
+    </optional>
+  </define>
+  <!--
+    This instruction cancels the execution of the rule being processed.
+    If "shifting" is set to "yes" or is not specified, the matching process
+    consumes exactly one word at the input. If "shifting" is set to "no"
+    then marks the rule to not to be considered in the current matching 
+    until the input buffer advances at least one single word 
+  -->
   <define name="chunk">
     <element name="chunk">
       <ref name="attlist.chunk"/>

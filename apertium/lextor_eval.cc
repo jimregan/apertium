@@ -13,9 +13,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <iostream>
@@ -126,7 +124,7 @@ LexTorEval::evalword(LexTorWord& ltword, int winner, LexTorData* lextor_data) {
       }
     } else {
       //if (LexTor::debug)
-      //  cerr<<"EVAL: reduced_w="<<reduced_w<<" reduced_wref="<<reduced_wref<<"\n";
+      //  wcerr<<"EVAL: reduced_w="<<reduced_w<<" reduced_wref="<<reduced_wref<<"\n";
 
       if(reduced_wref!=reduced_w) {
 	wcerr<<L"Error: Input and reference corpora are not aligned\n";
@@ -139,7 +137,7 @@ LexTorEval::evalword(LexTorWord& ltword, int winner, LexTorData* lextor_data) {
     //reduced_wref=wref;
     nignored+=1.0;
     if (LexTor::debug) {
-      cerr<<L"========= IGNORED\n";
+      wcerr<<L"========= IGNORED\n";
     }
 
   }

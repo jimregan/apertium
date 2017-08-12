@@ -14,14 +14,12 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <iostream>
 #include <fstream>
-#include <getopt.h>
+#include "getopt_long.h"
 
 #include <lttoolbox/fst_processor.h>
 
@@ -44,12 +42,12 @@ using namespace std;
 
 
 void help(char *name) {
-  cerr<<"USAGE:\n";
-  cerr<<name<<" --trainwrd stopwords words n left right corpus model [--weightexp w]\nOR\n";
-  cerr<<name<<" --trainlch stopwords lexchoices n left right corpus wordmodel dic bildic model [--weightexp w]\nOR\n";
-  cerr<<name<<" --lextor model dic left right [--debug] [--weightexp w]\n\n";
-  //cerr<<name<<" --lextortl stopwords words tlmodel dic bildic left right [--debug] [--weightexp w]\n\n"; 
-  cerr<<"ARGUMENTS: \n"
+  wcerr<<"USAGE:\n";
+  wcerr<<name<<" --trainwrd stopwords words n left right corpus model [--weightexp w]\nOR\n";
+  wcerr<<name<<" --trainlch stopwords lexchoices n left right corpus wordmodel dic bildic model [--weightexp w]\nOR\n";
+  wcerr<<name<<" --lextor model dic left right [--debug] [--weightexp w]\n\n";
+  //wcerr<<name<<" --lextortl stopwords words tlmodel dic bildic left right [--debug] [--weightexp w]\n\n"; 
+  wcerr<<"ARGUMENTS: \n"
       <<"   --trainwrd|-t: Train word co-occurrences model.\n"
       <<"   Required parameters:\n"
       <<"      stopwords: file containing a list of stop words. Stop words are ignored\n"
@@ -96,14 +94,12 @@ void help(char *name) {
       <<"   --debug|-d: Show debug information while operating\n"
       <<"   --help|-h: Show this help\n"
       <<"   --version|-v: Show version information\n\n";
-  cerr<<"Reads from standard input and writes to standard output\n";
+  wcerr<<"Reads from standard input and writes to standard output\n";
 }
 
 int main(int argc, char* argv[]) {
   int c;
-#if HAVE_GETOPT_LONG
   int option_index=0;
-#endif
   int mode=-1;
 
   //Parameters for the "trainwrd" or the "trainlch" mode option
@@ -127,10 +123,9 @@ int main(int argc, char* argv[]) {
 
   LexTor::debug=false;
 
-  //cerr<<"LOCALE: "<<setlocale(LC_ALL,"")<<"\n";
+  //wcerr<<"LOCALE: "<<setlocale(LC_ALL,"")<<"\n";
 
   while (true) {
-#if HAVE_GETOPT_LONG
     static struct option long_options[] =
       {
 	{"trainwrd",  required_argument, 0, 't'},
@@ -145,9 +140,6 @@ int main(int argc, char* argv[]) {
       };
 
     c=getopt_long(argc, argv, "t:r:l:e:w:dhv",long_options, &option_index);
-#else
-    c=getopt(argc, argv, "t:r:l:e:w:dhv");
-#endif
     if (c==-1)
       break;
       
@@ -217,9 +209,7 @@ int main(int argc, char* argv[]) {
 	  <<L"   General Public License for more details.\n"
 	  <<L"\n"
 	  <<L"   You should have received a copy of the GNU General Public License\n"
-	  <<L"   along with this program; if not, write to the Free Software\n"
-	  <<L"   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA\n"
-	  <<L"   02111-1307, USA.\n";
+	  <<L"   along with this program; if not, see <http://www.gnu.org/licenses/>.\n";
       exit(EXIT_SUCCESS);
       break;    
     default:
@@ -374,7 +364,7 @@ int main(int argc, char* argv[]) {
       exit(EXIT_FAILURE);
     }
     if (bildic_file=="") {
-      cerr<<"Error: No bilingual dictionary was provided\n";
+      wcerr<<"Error: No bilingual dictionary was provided\n";
       help(argv[0]);
       exit(EXIT_FAILURE);
     }

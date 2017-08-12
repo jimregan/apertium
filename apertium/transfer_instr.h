@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef _TRANSFERINSTR_
 #define _TRANSFERINSTR_
@@ -51,7 +49,12 @@ private:
   void copy(TransferInstr const &o);
   void destroy();
 public:
-  TransferInstr(){};
+  TransferInstr() :
+  type(ti_clip_sl),
+  pos(0),
+  pointer(0),
+  condition(false)
+  {}
   TransferInstr(TransferInstrType t, string const &c, int const p, 
                 void *ptr=NULL, bool cond = true);
   ~TransferInstr();

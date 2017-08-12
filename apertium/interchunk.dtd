@@ -13,9 +13,7 @@
    General Public License for more details.
   
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.
+   along with this program; if not, see <http://www.gnu.org/licenses/>.
 
     Draft of DTD for the structural transfer rule files 
      
@@ -152,10 +150,12 @@ patterns used in rules
 
 <!ELEMENT rule (pattern, action)>
 <!ATTLIST rule comment CDATA #IMPLIED>
-<!-- 
-      Each rule has a pattern and an action 
+<!ATTLIST rule c CDATA #IMPLIED>
+<!--
+      Each rule has a pattern and an action
       * attribute 'comment' allows to put in comments about the purpose of
-        the rule being defined
+        the rule being defined, this may be a rule specification in machine readable form
+      * attribute 'c' is for further comments in free form
 -->
 
 <!ELEMENT pattern (pattern-item+)>

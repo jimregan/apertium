@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef _INTERCHUNK_
 #define _INTERCHUNK_
@@ -74,8 +72,8 @@ private:
   bool null_flush;
   bool internal_null_flush;
   bool trace;
+  string emptyblank;
   
-  void copy(Interchunk const &o);
   void destroy();
   void readData(FILE *input);
   void readInterchunk(string const &input);
@@ -123,15 +121,12 @@ private:
 public:
   Interchunk();
   ~Interchunk();
-  Interchunk(Interchunk const &o);
-  Interchunk & operator =(Interchunk const &o);
   
   void read(string const &transferfile, string const &datafile);
   void interchunk(FILE *in, FILE *out);
   bool getNullFlush(void);
   void setNullFlush(bool null_flush);
   void setTrace(bool trace);
-
 };
 
 #endif

@@ -12,13 +12,13 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <lttoolbox/compression.h>
 #include <apertium/collection.h>
 #include <apertium/string_utils.h>
+#include <apertium/serialiser.h>
+#include <apertium/deserialiser.h>
 
 using namespace Apertium;
 
@@ -54,9 +54,7 @@ Collection::operator[](const set<int> &t)
 int &
 Collection::add(const set<int> &t)
 {
-  index[t] = index.size()-1;
-  element.push_back(&(index.find(t)->first));
-  return index[t];
+  return (*this)[t];
 }
 
 void
@@ -89,5 +87,25 @@ Collection::read(FILE *input)
       myset.insert(Compression::multibyte_read(input));
     }
     add(myset);
+  }
+}
+
+void
+Collection::serialise(std::ostream &serialised) const
+{
+  Serialiser<size_t>::serialise(element.size(), serialised);
+  for (size_t i = 0; i < element.size(); i++) {
+    Serialiser<set<int> >::serialise(*element[i], serialised);
+  }
+}
+
+void
+Collection::deserialise(std::istream &serialised)
+{
+  size_t size = Deserialiser<size_t>::deserialise(serialised);
+  for (size_t i = 0; i < size; i++) {
+    set<int> deserialised_set =
+      Deserialiser<set<int> >::deserialise(serialised);
+    add(deserialised_set);
   }
 }

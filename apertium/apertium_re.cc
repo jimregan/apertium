@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/apertium_re.h>
 #include <lttoolbox/compression.h>
@@ -25,7 +23,8 @@
 using namespace Apertium;
 using namespace std;
 
-ApertiumRE::ApertiumRE()
+ApertiumRE::ApertiumRE() :
+re(0)
 {
   empty = true;
 }
@@ -63,7 +62,7 @@ ApertiumRE::compile(string const &str)
   if(re == NULL)
   {
     wcerr << L"Error: pcre_compile ";
-    cerr << error << endl;
+    wcerr << error << endl;
     exit(EXIT_FAILURE);
   }
   
@@ -75,7 +74,7 @@ ApertiumRE::write(FILE *output) const
 {
   if(empty)
   {
-    cerr << L"Error, cannot write empty regexp" << endl;
+    wcerr << L"Error, cannot write empty regexp" << endl;
     exit(EXIT_FAILURE);
   }
   

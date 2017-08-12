@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/trx_reader.h>
 #include <lttoolbox/lt_locale.h>
@@ -32,7 +30,7 @@ int main(int argc, char *argv[])
 
   if(argc != 3)
   {
-    cerr << "USAGE: " << basename(argv[0]) << " rules_file transfer_file" << endl;
+    wcerr << "USAGE: " << basename(argv[0]) << " rules_file transfer_file" << endl;
     exit(EXIT_FAILURE);
   }
 

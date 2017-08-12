@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/hmm.h>
 #include <apertium/tagger_data_hmm.h>
@@ -115,7 +113,7 @@ TaggerDataHMM::setProbabilities(int const myN, int const myM,
       a[i] = new double[N];
       if(myA != NULL)
       {
-        for(int j = 0; j != N; j++)
+        for(int j = 0; j != N; j++) // ToDo: N should be M? Check use of N and M in this function
         { 
           a[i][j] = myA[i][j];
         }
@@ -274,13 +272,13 @@ TaggerDataHMM::read(FILE *in)
   // read discards on ambiguity
   discard.clear();
 
-  int limit = Compression::multibyte_read(in);  
+  unsigned int limit = Compression::multibyte_read(in);  
   if(feof(in))
   {
     return;
   }
   
-  for(int i = 0; i < limit; i++)
+  for(unsigned int i = 0; i < limit; i++)
   {
     discard.push_back(Compression::wstring_read(in));
   }
@@ -390,7 +388,7 @@ TaggerDataHMM::write(FILE *out)
   
   // write pattern list
   plist.write(out);
-  
+
   // write discard list
   
   if(discard.size() != 0)

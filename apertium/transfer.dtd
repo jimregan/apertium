@@ -13,9 +13,7 @@
    General Public License for more details.
   
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.
+   along with this program; if not, see <http://www.gnu.org/licenses/>.
 
     Draft of DTD for the structural transfer rule files 
      
@@ -25,7 +23,7 @@
 
 <!ENTITY % condition "(and|or|not|equal|begins-with|begins-with-list|ends-with|ends-with-list|contains-substring|in)">
 <!ENTITY % container "(var|clip)">
-<!ENTITY % sentence "(let|out|choose|modify-case|call-macro|append)">
+<!ENTITY % sentence "(let|out|choose|modify-case|call-macro|append|reject-current-rule)">
 <!ENTITY % value "(b|clip|lit|lit-tag|var|get-case-from|case-of|concat|lu|mlu|chunk)">
 <!ENTITY % stringvalue "(clip|lit|var|get-case-from|case-of)">
 
@@ -155,10 +153,12 @@ patterns used in rules
 
 <!ELEMENT rule (pattern, action)>
 <!ATTLIST rule comment CDATA #IMPLIED>
+<!ATTLIST rule c CDATA #IMPLIED>
 <!-- 
       Each rule has a pattern and an action 
       * attribute 'comment' allows to put in comments about the purpose of
-        the rule being defined
+        the rule being defined, this may be a rule specification in machine readable form
+      * attribute 'c' is for further comments in free form
 -->
 
 <!ELEMENT pattern (pattern-item+)>
@@ -450,6 +450,16 @@ get-case-from -->
 
 <!ELEMENT lu (%value;)+>
 <!-- Encloses a word inside an 'out' element. -->
+
+<!ELEMENT reject-current-rule EMPTY>
+<!ATTLIST reject-current-rule shifting (yes|no) #IMPLIED>
+<!--
+      This instruction cancels the execution of the rule being processed.
+      If "shifting" is set to "yes" or is not specified, the matching process
+      consumes exactly one word at the input. If "shifting" is set to "no"
+      then marks the rule to not to be considered in the current matching 
+      until the input buffer advances at least one single word 
+-->
 
 <!ELEMENT chunk (tags,(mlu|lu|b|var)+)>
 <!ATTLIST chunk name CDATA #IMPLIED

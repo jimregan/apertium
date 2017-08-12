@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/trx_reader.h>
 #include <lttoolbox/xml_parse_util.h>
@@ -31,68 +29,10 @@ TRXReader::ANY_TAG = L"<ANY_TAG>";
 wstring const
 TRXReader::ANY_CHAR = L"<ANY_CHAR>";
 
-void
-TRXReader::copy(TRXReader const &o)
-{
-}
-
-void
-TRXReader::destroy()
-{
-  xmlFreeTextReader(reader);
-}
-
 TRXReader::TRXReader()
 {
   td.getAlphabet().includeSymbol(ANY_TAG);
   td.getAlphabet().includeSymbol(ANY_CHAR);
-}
-
-TRXReader::~TRXReader()
-{
-  destroy();
-}
-
-TRXReader::TRXReader(TRXReader const &o)
-{
-  copy(o);
-}
-
-void
-TRXReader::step()
-{
-  int retval = xmlTextReaderRead(reader);
-  if(retval != 1)
-  {
-    parseError(L"unexpected EOF");
-  }
-  name = XMLParseUtil::towstring(xmlTextReaderConstName(reader));
-  type = xmlTextReaderNodeType(reader);
-}
-
-TRXReader &
-TRXReader::operator =(TRXReader const &o)
-{
-  if(this != &o)
-  {
-    destroy();
-    copy(o);
-  }
-  return *this;
-}
-
-wstring
-TRXReader::attrib(wstring const &name)
-{
-  return XMLParseUtil::attrib(reader, name);
-} 
-
-void
-TRXReader::parseError(wstring const &message)
-{
-  wcerr << L"Error: (" << xmlTextReaderGetParserLineNumber(reader);
-  wcerr << L"): " << message << L"." << endl;
-  exit(EXIT_FAILURE);
 }
 
 int
@@ -182,15 +122,8 @@ TRXReader::insertTags(int const base, wstring const &tags)
 }
 
 void
-TRXReader::read(string const &filename)
+TRXReader::parse()
 {
-  reader = xmlReaderForFile(filename.c_str(), NULL, 0);
-  if(reader == NULL)
-  {
-    cerr << "Error: Cannot open '" << filename << "'." << endl;
-    exit(EXIT_FAILURE);
-  }
-
   procDefCats();
   step();
   while(name == L"#text" || name == L"#comment")
@@ -376,8 +309,8 @@ TRXReader::write(string const &filename)
   FILE *out = fopen(filename.c_str(), "wb");
   if(!out)
   {
-    cerr << "Error: cannot open '" << filename;
-    cerr << "' for writing" << endl;
+    wcerr << "Error: cannot open '" << filename;
+    wcerr << "' for writing" << endl;
     exit(EXIT_FAILURE);
   }
   
@@ -429,7 +362,7 @@ TRXReader::procDefAttrs()
     }
     else
     {
-      parseError(L"Unexpected '<" + name + L">' tag");
+      unexpectedTag();
     }
   }
 }
@@ -443,7 +376,7 @@ TRXReader::procDefCats()
     if(name != L"#text" && name != L"transfer" &&  name != L"interchunk" &&
        name != L"postchunk" && name != L"section-def-cats" && name != L"#comment")
     {
-      parseError(L"'<" + name + L">' tag unexpected");
+      unexpectedTag();
     }
   }
   
@@ -492,7 +425,7 @@ TRXReader::procDefCats()
     }
     else
     {
-      parseError(L"Unexpected '<" + name + L">' tag");
+      unexpectedTag();
     }
   }
 }
@@ -525,7 +458,7 @@ TRXReader::procDefVars()
     }
     else
     {
-      parseError(L"Unexpected '<" + name + L">' tag");
+      unexpectedTag();
     }
   }
 }
@@ -571,7 +504,7 @@ TRXReader::procDefLists()
     }
     else
     {
-      parseError(L"Unexpected '<" + name + L">' tag");
+      unexpectedTag();
     }
   }
 }

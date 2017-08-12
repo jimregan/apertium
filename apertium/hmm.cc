@@ -13,9 +13,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 /*
  *  First order hidden Markov model (HMM) implementation (source)
@@ -29,37 +27,83 @@
 #include <apertium/unlocked_cstdio.h>
 #include <lttoolbox/compression.h>
 
-#ifdef WIN32
-#define isnan(n) _isnan(n)
-#define isinf(n) (!_finite(n))
-#endif
-
-#ifdef __clang__
-#undef __GNUC__
-#endif
-
 #include <stdio.h>
 #include <unistd.h>
 #include <vector>
 #include <algorithm>
 #include <apertium/string_utils.h>
+#include <apertium/file_morpho_stream.h>
+
+inline bool p_isnan(double v) {
+#if __cplusplus >= 201103L
+	return std::isnan(v);
+#else
+	return ::isnan(v);
+#endif
+}
+
+inline bool p_isinf(double v) {
+#if __cplusplus >= 201103L
+	return std::isinf(v);
+#else
+	return ::isinf(v);
+#endif
+}
 
 using namespace Apertium;
 using namespace tagger_utils;
 
-HMM::HMM(TaggerDataHMM *tdhmm)
-{
-  this->tdhmm = tdhmm;
-
-  debug=false;
-  show_sf=false;
-  null_flush = false;
-  eos = (tdhmm->getTagIndex())[L"TAG_SENT"];  
+TaggerData& HMM::get_tagger_data() {
+  return tdhmm;
 }
 
-HMM::~HMM()
-{
+void HMM::deserialise(FILE *Serialised_FILE_Tagger) {
+  tdhmm.read(Serialised_FILE_Tagger);
+  eos = (tdhmm.getTagIndex())[L"TAG_SENT"];
 }
+
+std::vector<std::wstring> &HMM::getArrayTags() {
+  return tdhmm.getArrayTags();
+}
+
+void HMM::serialise(FILE *Stream_) { tdhmm.write(Stream_); }
+
+void HMM::deserialise(const TaggerData &Deserialised_FILE_Tagger) {
+  tdhmm = TaggerDataHMM(Deserialised_FILE_Tagger);
+  eos = (tdhmm.getTagIndex())[L"TAG_SENT"];
+}
+
+void HMM::init_probabilities_from_tagged_text_(MorphoStream &stream_tagged,
+                                               MorphoStream &stream_untagged) {
+  init_probabilities_from_tagged_text(stream_tagged, stream_untagged);
+  apply_rules();
+}
+
+void HMM::init_probabilities_kupiec_(MorphoStream &lexmorfo) {
+  init_probabilities_kupiec(lexmorfo);
+  apply_rules();
+}
+
+void HMM::train(MorphoStream &morpho_stream, unsigned long count) {
+  for (; count > 0; --count) {
+    morpho_stream.rewind();
+    train(morpho_stream);
+  }
+
+  apply_rules();
+}
+
+HMM::HMM() {}
+
+HMM::HMM(TaggerDataHMM tdhmm)
+{
+  tdhmm = tdhmm;
+  eos = (tdhmm.getTagIndex())[L"TAG_SENT"];  
+}
+
+HMM::HMM(TaggerDataHMM *tdhmm) : tdhmm(*tdhmm) {}
+
+HMM::~HMM() {}
 
 void
 HMM::init()
@@ -70,18 +114,6 @@ void
 HMM::set_eos(TTag t) 
 { 
   eos = t; 
-} 
-
-void
-HMM::set_debug(bool d)
-{ 
-  debug = d; 
-} 
-
-void
-HMM::set_show_sf(bool sf)
-{ 
-  show_sf = sf; 
 } 
 
 void 
@@ -104,19 +136,19 @@ HMM::read_ambiguity_classes(FILE *in)
     
     if(ambiguity_class.size() != 0)
     {
-      tdhmm->getOutput().add(ambiguity_class);
+      tdhmm.getOutput().add(ambiguity_class);
     }     
   }
   
-  tdhmm->setProbabilities(tdhmm->getTagIndex().size(), tdhmm->getOutput().size());
+  tdhmm.setProbabilities(tdhmm.getTagIndex().size(), tdhmm.getOutput().size());
 }
 
 void 
 HMM::write_ambiguity_classes(FILE *out) 
 {
-  for(int i=0, limit = tdhmm->getOutput().size(); i != limit; i++) 
+  for(int i=0, limit = tdhmm.getOutput().size(); i != limit; i++) 
   {
-    set<TTag> const &ac = (tdhmm->getOutput())[i];
+    set<TTag> const &ac = (tdhmm.getOutput())[i];
     Compression::multibyte_write(ac.size(), out);
     for(set<TTag>::const_iterator it = ac.begin(), limit2 = ac.end();
         it != limit2; it++)
@@ -129,46 +161,29 @@ HMM::write_ambiguity_classes(FILE *out)
 void 
 HMM::read_probabilities(FILE *in)
 {
-  tdhmm->read(in);
+  tdhmm.read(in);
 }
 
 void 
 HMM::write_probabilities(FILE *out)
 {
-  tdhmm->write(out);  
+  tdhmm.write(out);  
 }  
 
 void 
-HMM::init_probabilities_kupiec (FILE *is)
+HMM::init_probabilities_kupiec(MorphoStream &lexmorfo)
 {
-  int N = tdhmm->getN();
-  int M = tdhmm->getM();
+  int N = tdhmm.getN();
+  int M = tdhmm.getM();
   int i=0, j=0, k=0, k1=0, k2=0, nw=0;
-#ifdef __GNUC__
-  double classes_ocurrences[M]; //M = Number of ambiguity classes
-  double classes_pair_ocurrences[M][M];
-  double tags_estimate[N]; //N = Number of tags (states)
-  double tags_pair_estimate[N][N];
-#else
   vector <double> classes_ocurrences (M, 1);
   vector <vector <double> > classes_pair_ocurrences(M, vector<double>(M, 1));
   vector <double> tags_estimate(N, 0);
   vector <vector <double> > tags_pair_estimate(N, vector<double>(N, 0));
-#endif
   
-  Collection &output = tdhmm->getOutput();
- 
-  MorphoStream lexmorfo(is, true, tdhmm);
+  Collection &output = tdhmm.getOutput();
   
   TaggerWord *word=NULL;
-
-#ifdef __GNUC__
-  for(k=0; k<M; k++) {
-    classes_ocurrences[k]=1; 
-    for (k2=0; k2<M; k2++)
-      classes_pair_ocurrences[k][k2]=1;
-  }
-#endif
 
   set<TTag> tags;
   tags.insert(eos);  
@@ -182,16 +197,11 @@ HMM::init_probabilities_kupiec (FILE *is)
     tags=word->get_tags();
 
     if (tags.size()==0) { //This is an unknown word
-      tags = tdhmm->getOpenClass();
+      tags = tdhmm.getOpenClass();
     }
-    else if (output.has_not(tags)) { 
-      wstring errors;
-      errors = L"A new ambiguity class was found. I cannot continue.\n";
-      errors+= L"Word '"+word->get_superficial_form()+L"' not found in the dictionary.\n";
-      errors+= L"New ambiguity class: "+word->get_string_tags()+L"\n";
-      errors+= L"Take a look at the dictionary and at the training corpus. Then, retrain.";      
-      fatal_error(errors);      
-    }    
+    else {
+      require_ambiguity_class(tdhmm, tags, *word, nw);
+    }
 
     k2=output[tags];
 
@@ -206,9 +216,6 @@ HMM::init_probabilities_kupiec (FILE *is)
 
   //Estimation of the number of time each tags occurs in the training text
   for(i=0; i<N; i++) {  
-#ifdef __GNUC__
-    tags_estimate[i]=0;
-#endif
     for(k=0; k<M;  k++) { 
   
       if(output[k].find(i) != output[k].end())
@@ -216,13 +223,6 @@ HMM::init_probabilities_kupiec (FILE *is)
     }
   }
   
-#ifdef __GNUC__
-  //Estimation of the number of times each tag pair occurs
-  for(i=0; i<N; i++)
-    for(j=0; j<N; j++)
-      tags_pair_estimate[i][j]=0;
-#endif
-
   set<TTag> tags1, tags2;
   set<TTag>::iterator itag1, itag2;
   for(k1=0; k1<M; k1++) {
@@ -246,9 +246,9 @@ HMM::init_probabilities_kupiec (FILE *is)
 
     for(j=0; j<N; j++) {  
       if (sum>0)
-        (tdhmm->getA())[i][j] = tags_pair_estimate[i][j]/sum;
+        (tdhmm.getA())[i][j] = tags_pair_estimate[i][j]/sum;
       else {
-        (tdhmm->getA())[i][j] = 0;
+        (tdhmm.getA())[i][j] = 0;
       }
     }
   }
@@ -258,52 +258,31 @@ HMM::init_probabilities_kupiec (FILE *is)
     for(k=0; k<M; k++)  {
       if (output[k].find(i)!=output[k].end()) {
         if (tags_estimate[i]>0)
-          (tdhmm->getB())[i][k] = (classes_ocurrences[k]/output[k].size())/tags_estimate[i];
+          (tdhmm.getB())[i][k] = (classes_ocurrences[k]/output[k].size())/tags_estimate[i];
         else 
-	  (tdhmm->getB())[i][k] = 0;
+	  (tdhmm.getB())[i][k] = 0;
       }
     }
   }
   wcerr<<L"\n";
 }
 
+
 void 
-HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
+HMM::init_probabilities_from_tagged_text(MorphoStream &stream_tagged,
+                                         MorphoStream &stream_untagged) {
   int i, j, k, nw=0;
-  int N = tdhmm->getN();
-  int M = tdhmm->getM();
-#ifdef __GNUC__
-  double tags_pair[N][N];
-  double emission[N][M];
-#else
+  int N = tdhmm.getN();
+  int M = tdhmm.getM();
   vector <vector <double> > tags_pair(N, vector<double>(N, 0));
   vector <vector <double> > emission(N, vector<double>(M, 0));
-#endif
 
-
-  MorphoStream stream_tagged(ftagged, true, tdhmm);
-  MorphoStream stream_untagged(funtagged, true, tdhmm);
   
   TaggerWord *word_tagged=NULL, *word_untagged=NULL;
-  Collection &output = tdhmm->getOutput();
+  Collection &output = tdhmm.getOutput();
 
   
   set<TTag> tags;
-
-#ifdef __GNUC__ 
-  // Init counters - each event appears at least once. 
-  // Espected likelihood estimate (ELE) with a fixed initial count of 1
-  for(i=0; i<N; i++) {
-    for(j=0; j<N; j++)
-      tags_pair[i][j]=0;
-  }
-  for(k=0; k<M; k++) {
-    for(i=0; i<N; i++) {
-      if (output[k].find(i)!=output[k].end())
-        emission[i][k] = 0;
-    }  
-  }
-#endif 
 
   TTag tag1, tag2;  
   tag1 = eos; // The first seen tag is the end-of-sentence tag
@@ -344,17 +323,10 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
     
 
     if (word_untagged->get_tags().size()==0) { // Unknown word
-      tags = tdhmm->getOpenClass();
+      tags = tdhmm.getOpenClass();
     }
-    else if (output.has_not(word_untagged->get_tags())) { //We are training, there is no problem
-      wstring errors;
-      errors = L"A new ambiguity class was found. I cannot continue.\n";
-      errors+= L"Word '"+word_untagged->get_superficial_form()+L"' not found in the dictionary.\n";
-      errors+= L"New ambiguity class: "+word_untagged->get_string_tags()+L"\n";
-      errors+= L"Take a look at the dictionary, then retrain.";
-      fatal_error(errors);      
-    }    
     else {
+      require_ambiguity_class(tdhmm, word_untagged->get_tags(), *word_untagged, nw);
       tags = word_untagged->get_tags();
     }
 
@@ -375,7 +347,7 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
     for(j=0; j<N; j++)  
       sum += tags_pair[i][j]+1.0;
     for(j=0; j<N; j++)  
-      (tdhmm->getA())[i][j] = (tags_pair[i][j]+1.0)/sum;
+      (tdhmm.getA())[i][j] = (tags_pair[i][j]+1.0)/sum;
   }
     
   
@@ -391,7 +363,7 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
     }	      
     for(k=0; k<M; k++)  {
       if (output[k].find(i)!=output[k].end())
-	(tdhmm->getB())[i][k] = (emission[i][k]+(((double)1.0)/((double)nclasses_appear)))/(times_appear+((double)1.0));
+	(tdhmm.getB())[i][k] = (emission[i][k]+(((double)1.0)/((double)nclasses_appear)))/(times_appear+((double)1.0));
     }
    }
   
@@ -401,14 +373,14 @@ HMM::init_probabilities_from_tagged_text(FILE *ftagged, FILE *funtagged) {
 void
 HMM::apply_rules()
 {
-  vector<TForbidRule> &forbid_rules = tdhmm->getForbidRules();
-  vector<TEnforceAfterRule> &enforce_rules = tdhmm->getEnforceRules();
-  int N = tdhmm->getN();
+  vector<TForbidRule> &forbid_rules = tdhmm.getForbidRules();
+  vector<TEnforceAfterRule> &enforce_rules = tdhmm.getEnforceRules();
+  int N = tdhmm.getN();
   int i, j, j2;
   bool found;
    
   for(i=0; i<(int) forbid_rules.size(); i++) {
-    (tdhmm->getA())[forbid_rules[i].tagi][forbid_rules[i].tagj] = ZERO;
+    (tdhmm.getA())[forbid_rules[i].tagi][forbid_rules[i].tagj] = ZERO;
   }
 
   for(i=0; i<(int) enforce_rules.size(); i++) {
@@ -421,7 +393,7 @@ HMM::apply_rules()
 	}	  
       }
       if (!found)
-        (tdhmm->getA())[enforce_rules[i].tagi][j] = ZERO;
+        (tdhmm.getA())[enforce_rules[i].tagi][j] = ZERO;
     }
   }
     
@@ -429,67 +401,29 @@ HMM::apply_rules()
   for(i=0; i<N; i++) {
     double sum=0;
     for(j=0; j<N; j++) 
-      sum += (tdhmm->getA())[i][j];
+      sum += (tdhmm.getA())[i][j];
     for(j=0; j<N; j++) {
       if (sum>0)
-	(tdhmm->getA())[i][j] = (tdhmm->getA())[i][j]/sum;
+	(tdhmm.getA())[i][j] = (tdhmm.getA())[i][j]/sum;
       else
-	(tdhmm->getA())[i][j] = 0;
+	(tdhmm.getA())[i][j] = 0;
     }
   }
 }
 
-void 
-HMM::read_dictionary (FILE *fdic) {
-  int i, k, nw=0;
-  TaggerWord *word=NULL;
-  set <TTag> tags;
-  Collection &output = tdhmm->getOutput();
-  
-  MorphoStream morpho_stream(fdic, true, tdhmm);
-  
-  // In the input dictionary there must be all punctuation marks, including the end-of-sentece mark
-   
-  word = morpho_stream.get_next_word();
-  
-  while (word) {
-    if (++nw%10000==0) wcerr<<L'.'<<flush;
-    
-    tags = word->get_tags();
+void
+HMM::post_ambg_class_scan() {
+  int N = (tdhmm.getTagIndex()).size();
+  int M = (tdhmm.getOutput()).size();
+  wcerr << N << L" states and " << M <<L" ambiguity classes\n";
 
-    if (tags.size()>0)
-      k = output[tags];
-
-    delete word;
-    word = morpho_stream.get_next_word();
-  }
-  wcerr<<L"\n";
-  
-  // OPEN AMBIGUITY CLASS
-  // It contains all tags that are not closed.
-  // Unknown words are assigned the open ambiguity class
-  k=output[tdhmm->getOpenClass()];
-
-  int N = (tdhmm->getTagIndex()).size();  
-  
-  // Create ambiguity class holding one single tag for each tag.
-  // If not created yet
-  for(i = 0; i != N; i++) {
-    set<TTag> amb_class;
-    amb_class.insert(i);
-    k=output[amb_class];
-  }
-
-  int M = output.size();
-  
-  wcerr<< N <<L" states and "<< M <<L" ambiguity classes\n";
-  tdhmm->setProbabilities(N, M);
+  tdhmm.setProbabilities(N, M);
 }
 
 void
 HMM::filter_ambiguity_classes(FILE *in, FILE *out) {
   set<set<TTag> > ambiguity_classes;
-  MorphoStream morpho_stream(in, true, tdhmm);
+  FileMorphoStream morpho_stream(in, true, &tdhmm);
   
   TaggerWord *word = morpho_stream.get_next_word();
   
@@ -507,8 +441,8 @@ HMM::filter_ambiguity_classes(FILE *in, FILE *out) {
   }
 }
 
-void 
-HMM::train (FILE *ftxt) {
+void
+HMM::train(MorphoStream &morpho_stream) {
   int i, j, k, t, len, nw = 0;
   TaggerWord *word=NULL;
   TTag tag; 
@@ -520,13 +454,11 @@ HMM::train (FILE *ftxt) {
   map < int, map <int, double> >::iterator it;
   double prob, loli;              
   vector < set<TTag> > pending;
-  Collection &output = tdhmm->getOutput();
+  Collection &output = tdhmm.getOutput();
   
   int ndesconocidas=0;
   // alpha => forward probabilities
   // beta  => backward probabilities
-  
-  MorphoStream morpho_stream(ftxt, true, tdhmm);
 
   loli = 0;
   tag = eos;
@@ -553,18 +485,11 @@ HMM::train (FILE *ftxt) {
     tags = word->get_tags();    
     
     if (tags.size()==0) { // This is an unknown word
-      tags = tdhmm->getOpenClass();
+      tags = tdhmm.getOpenClass();
       ndesconocidas++;
     }
-    
-    if (output.has_not(tags)) {
-      wstring errors;
-      errors = L"A new ambiguity class was found. I cannot continue.\n";
-      errors+= L"Word '"+word->get_superficial_form()+L"' not found in the dictionary.\n";
-      errors+= L"New ambiguity class: "+word->get_string_tags()+L"\n";
-      errors+= L"Take a look at the dictionary, then retrain.";
-      fatal_error(errors);      
-    }
+
+    require_ambiguity_class(tdhmm, tags, *word, nw);
     
     k = output[tags];    
     len = pending.size();
@@ -575,15 +500,15 @@ HMM::train (FILE *ftxt) {
       i=*itag;
       for (jtag=pretags.begin(); jtag!=pretags.end(); jtag++) {
          j=*jtag;
-         //cerr<<"previous alpha["<<len<<"]["<<i<<"]="<<alpha[len][i]<<"\n";
-	 //cerr<<"alpha["<<len-1<<"]["<<j<<"]="<<alpha[len-1][j]<<"\n";
-         //cerr<<"a["<<j<<"]["<<i<<"]="<<a[j][i]<<"\n";
-         //cerr<<"b["<<i<<"]["<<k<<"]="<<b[i][k]<<"\n";
-	 alpha[len][i] += alpha[len-1][j]*(tdhmm->getA())[j][i]*(tdhmm->getB())[i][k];
+         //wcerr<<"previous alpha["<<len<<"]["<<i<<"]="<<alpha[len][i]<<"\n";
+	 //wcerr<<"alpha["<<len-1<<"]["<<j<<"]="<<alpha[len-1][j]<<"\n";
+         //wcerr<<"a["<<j<<"]["<<i<<"]="<<a[j][i]<<"\n";
+         //wcerr<<"b["<<i<<"]["<<k<<"]="<<b[i][k]<<"\n";
+	 alpha[len][i] += alpha[len-1][j]*(tdhmm.getA())[j][i]*(tdhmm.getB())[i][k];
       }
       if (alpha[len][i]==0)
         alpha[len][i]=DBL_MIN;
-      //cerr<<"alpha["<<len<<"]["<<i<<"]="<<alpha[len][i]<<"\n--------\n";
+      //wcerr<<"alpha["<<len<<"]["<<i<<"]="<<alpha[len][i]<<"\n--------\n";
     }
 
     if (tags.size()>1) {
@@ -595,8 +520,8 @@ HMM::train (FILE *ftxt) {
       
       prob = alpha[len][tag];
       
-      //cerr<<"prob="<<prob<<"\n";
-      //cerr<<"alpha["<<len<<"]["<<tag<<"]="<<alpha[len][tag]<<"\n";
+      //wcerr<<"prob="<<prob<<"\n";
+      //wcerr<<"alpha["<<len<<"]["<<tag<<"]="<<alpha[len][tag]<<"\n";
       loli -= log(prob);  
       
       for (t=0; t<len; t++) {  // loop from T-1 to 0	
@@ -608,18 +533,18 @@ HMM::train (FILE *ftxt) {
 	       i=*itag;
 	       for (jtag=pretags.begin(); jtag!=pretags.end(); jtag++) {
 	         j = *jtag;	      
-	         beta[1-t%2][j] += (tdhmm->getA())[j][i]*(tdhmm->getB())[i][k]*beta[t%2][i];
-	         xsi[j][i] += alpha[len-t-1][j]*(tdhmm->getA())[j][i]*(tdhmm->getB())[i][k]*beta[t%2][i]/prob;
+	         beta[1-t%2][j] += (tdhmm.getA())[j][i]*(tdhmm.getB())[i][k]*beta[t%2][i];
+	         xsi[j][i] += alpha[len-t-1][j]*(tdhmm.getA())[j][i]*(tdhmm.getB())[i][k]*beta[t%2][i]/prob;
 	       }
 	       double previous_value = gamma[i];
        
 	       gamma[i] +=  alpha[len-t][i]*beta[t%2][i]/prob;		       
-	       if (isnan(gamma[i])) {
+	       if (p_isnan(gamma[i])) {
 	          wcerr<<L"NAN(3) gamma["<<i<<L"] = "<<gamma[i]<<L" alpha["<<len-t<<L"]["<<i<<L"]= "<<alpha[len-t][i]
 	               <<L" beta["<<t%2<<L"]["<<i<<L"] = "<<beta[t%2][i]<<L" prob = "<<prob<<L" previous gamma = "<<previous_value<<L"\n";
 	          exit(1);	               
 	       }
-	       if (isinf(gamma[i])) {
+	       if (p_isinf(gamma[i])) {
 	          wcerr<<L"INF(3) gamma["<<i<<L"] = "<<gamma[i]<<L" alpha["<<len-t<<L"]["<<i<<L"]= "<<alpha[len-t][i]
 	               <<L" beta["<<t%2<<L"]["<<i<<L"] = "<<beta[t%2][i]<<L" prob = "<<prob<<L" previous gamma = "<<previous_value<<L"\n";
 	          exit(1);	               
@@ -646,19 +571,22 @@ HMM::train (FILE *ftxt) {
     word = morpho_stream.get_next_word();
   }  
 
-  if ((pending.size()>1) || ((tag!=eos)&&(tag != (tdhmm->getTagIndex())[L"TAG_kEOF"]))) 
-    wcerr<<L"Warning: Thee las tag is not the end-of-sentence-tag\n";
+  if ((pending.size()>1) || ((tag!=eos)&&(tag != (tdhmm.getTagIndex())[L"TAG_kEOF"]))) {
+    wcerr << L"Warning: The last tag is not the end-of-sentence-tag "
+          << L"but rather " << tdhmm.getArrayTags()[tag] << L". Line: " << nw
+	  << L". Pending: " << pending.size() << ". Tags: ";
+    wcerr << "\n";
+  }
   
-  
-  int N = tdhmm->getN();
-  int M = tdhmm->getM();
+  int N = tdhmm.getN();
+  int M = tdhmm.getM();
   
   //Clean previous values  
   for(i=0; i<N; i++) {
      for(j=0; j<N; j++)
-        (tdhmm->getA())[i][j]=ZERO;
+        (tdhmm.getA())[i][j]=ZERO;
      for(k=0; k<M; k++)
-        (tdhmm->getB())[i][k]=ZERO;
+        (tdhmm.getB())[i][k]=ZERO;
   }
   
   // new parameters
@@ -672,20 +600,20 @@ HMM::train (FILE *ftxt) {
           gamma[i]=DBL_MIN;
         }
         
-        (tdhmm->getA())[i][j] = xsi[i][j]/gamma[i];
+        (tdhmm.getA())[i][j] = xsi[i][j]/gamma[i];
 	
-        if (isnan((tdhmm->getA())[i][j])) {
+        if (p_isnan((tdhmm.getA())[i][j])) {
           wcerr<<L"NAN\n";
-          wcerr <<L"Error: BW - NAN(1) a["<<i<<L"]["<<j<<L"]="<<(tdhmm->getA())[i][j]<<L"\txsi["<<i<<L"]["<<j<<L"]="<<xsi[i][j]<<L"\tgamma["<<i<<L"]="<<gamma[i]<<L"\n";
+          wcerr <<L"Error: BW - NAN(1) a["<<i<<L"]["<<j<<L"]="<<(tdhmm.getA())[i][j]<<L"\txsi["<<i<<L"]["<<j<<L"]="<<xsi[i][j]<<L"\tgamma["<<i<<L"]="<<gamma[i]<<L"\n";
 	  exit(1);
         }
-	if (isinf((tdhmm->getA())[i][j])) {
+	if (p_isinf((tdhmm.getA())[i][j])) {
 	  wcerr<<L"INF\n"; 
-          wcerr <<L"Error: BW - INF(1) a["<<i<<L"]["<<j<<L"]="<<(tdhmm->getA())[i][j]<<L"\txsi["<<i<<L"]["<<j<<L"]="<<xsi[i][j]<<L"\tgamma["<<i<<L"]="<<gamma[i]<<L"\n";
+          wcerr <<L"Error: BW - INF(1) a["<<i<<L"]["<<j<<L"]="<<(tdhmm.getA())[i][j]<<L"\txsi["<<i<<L"]["<<j<<L"]="<<xsi[i][j]<<L"\tgamma["<<i<<L"]="<<gamma[i]<<L"\n";
           exit(1);
         }
-	if ((tdhmm->getA())[i][j]==0) {
-          //cerr <<"Error: BW - ZERO(1) a["<<i<<"]["<<j<<"]="<<(tdhmm->getA())[i][j]<<"\txsi["<<i<<"]["<<j<<"]="<<xsi[i][j]<<"\tgamma["<<i<<"]="<<gamma[i]<<"\n";
+	if ((tdhmm.getA())[i][j]==0) {
+          //wcerr <<"Error: BW - ZERO(1) a["<<i<<"]["<<j<<"]="<<(tdhmm.getA())[i][j]<<"\txsi["<<i<<"]["<<j<<"]="<<xsi[i][j]<<"\tgamma["<<i<<"]="<<gamma[i]<<"\n";
 	  //     exit(1);
         }
       }
@@ -697,18 +625,18 @@ HMM::train (FILE *ftxt) {
     for (kt=phi[i].begin(); kt!=phi[i].end(); kt++) {
       k = kt->first;
       if (phi[i][k]>0) {
-        (tdhmm->getB())[i][k] = phi[i][k]/gamma[i];	
+        (tdhmm.getB())[i][k] = phi[i][k]/gamma[i];	
         
-	if (isnan((tdhmm->getB())[i][k])) {
-          wcerr<<L"Error: BW - NAN(2) b["<<i<<L"]["<<k<<L"]="<<(tdhmm->getB())[i][k]<<L"\tphi["<<i<<L"]["<<k<<L"]="<<phi[i][k]<<L"\tgamma["<<i<<L"]="<<gamma[i]<<L"\n";
+	if (p_isnan((tdhmm.getB())[i][k])) {
+          wcerr<<L"Error: BW - NAN(2) b["<<i<<L"]["<<k<<L"]="<<(tdhmm.getB())[i][k]<<L"\tphi["<<i<<L"]["<<k<<L"]="<<phi[i][k]<<L"\tgamma["<<i<<L"]="<<gamma[i]<<L"\n";
 	       exit(1);
         }
-	if (isinf((tdhmm->getB())[i][k])) {
-          wcerr<<L"Error: BW - INF(2) b["<<i<<L"]["<<k<<L"]="<<(tdhmm->getB())[i][k]<<L"\tphi["<<i<<L"]["<<k<<L"]="<<phi[i][k]<<L"\tgamma["<<i<<L"]="<<gamma[i]<<L"\n";
+	if (p_isinf((tdhmm.getB())[i][k])) {
+          wcerr<<L"Error: BW - INF(2) b["<<i<<L"]["<<k<<L"]="<<(tdhmm.getB())[i][k]<<L"\tphi["<<i<<L"]["<<k<<L"]="<<phi[i][k]<<L"\tgamma["<<i<<L"]="<<gamma[i]<<L"\n";
 	       exit(1);
         }
-	if ((tdhmm->getB())[i][k]==0) {
-          //cerr <<"Error: BW - ZERO(2) b["<<i<<"]["<<k<<"]="<<(tdhmm->getB())[i][k]<<"\tphi["<<i<<"]["<<k<<"]="<<phi[i][k]<<"\tgamma["<<i<<"]="<<gamma[i]<<"\n";
+	if ((tdhmm.getB())[i][k]==0) {
+          //wcerr <<"Error: BW - ZERO(2) b["<<i<<"]["<<k<<"]="<<(tdhmm.getB())[i][k]<<"\tphi["<<i<<"]["<<k<<"]="<<phi[i][k]<<"\tgamma["<<i<<"]="<<gamma[i]<<"\n";
 	  //     exit(1);
         }
       }
@@ -720,20 +648,20 @@ HMM::train (FILE *ftxt) {
   for(i=0; i<N; i++) {
     double sum=0;
     for(j=0; j<N; j++)
-      sum+=(tdhmm->getA())[i][j];
+      sum+=(tdhmm.getA())[i][j];
     for(j=0; j<N; j++)
-      (tdhmm->getA())[i][j]=(tdhmm->getA())[i][j]/sum;
+      (tdhmm.getA())[i][j]=(tdhmm.getA())[i][j]/sum;
   }
 
   for(i=0; i<N; i++) {
     double sum=0;
     for(k=0; k<M; k++) {
       if(output[k].find(i)!=output[k].end())
-        sum+=(tdhmm->getB())[i][k];
+        sum+=(tdhmm.getB())[i][k];
     }
     for(k=0; k<M; k++) {
       if(output[k].find(i)!=output[k].end())
-        (tdhmm->getB())[i][k]=(tdhmm->getB())[i][k]/sum;
+        (tdhmm.getB())[i][k]=(tdhmm.getB())[i][k]/sum;
     }
   }
 
@@ -741,31 +669,25 @@ HMM::train (FILE *ftxt) {
 }
 
 void 
-HMM::tagger(FILE *in, FILE *out, bool show_all_good_first) {
+HMM::tagger(MorphoStream &morpho_stream, FILE *Output, const bool &First) {
   int i, j, k, nw;
-  TaggerWord *word=NULL;
+  TaggerWord *word = NULL;
   TTag tag;
   
-  set <TTag> tags, pretags;
+  set <TTag> ambg_class_tags, tags, pretags;
   set <TTag>::iterator itag, jtag;
   
   double prob, loli, x;
-  int N = tdhmm->getN();  
-#ifdef __GNUC__
-  double alpha[2][N];
-  vector<TTag> best[2][N];
-#else
+  int N = tdhmm.getN();  
   vector <vector <double> > alpha(2, vector<double>(N));
   vector <vector <vector<TTag> > > best(2, vector <vector <TTag> >(N));
-#endif
   
   vector <TaggerWord> wpend; 
   int nwpend;
-  
-  MorphoStream morpho_stream(in, debug, tdhmm);                             
+
   morpho_stream.setNullFlush(null_flush);
   
-  Collection &output = tdhmm->getOutput();
+  Collection &output = tdhmm.getOutput();
   
   loli = nw = 0;
   
@@ -774,7 +696,7 @@ HMM::tagger(FILE *in, FILE *out, bool show_all_good_first) {
   alpha[0][eos] = 1;
    
   word = morpho_stream.get_next_word();
- 
+
   while (word) {
     wpend.push_back(*word);    	    
     nwpend = wpend.size();
@@ -784,33 +706,21 @@ HMM::tagger(FILE *in, FILE *out, bool show_all_good_first) {
     tags = word->get_tags();
   
     if (tags.size()==0) // This is an unknown word
-      tags = tdhmm->getOpenClass();
+      tags = tdhmm.getOpenClass();
                        
-    if (output.has_not(tags)) {  // Encontrada una clase de ambigüedad desconocida hasta el momento      
-      if (debug) {
-        wstring errors;
-	errors = L"A new ambiguity class was found. \n";
-	errors+= L"Retraining the tagger is necessary so as to take it into account.\n";
-	errors+= L"Word '"+word->get_superficial_form()+L"'.\n";
-	errors+= L"New ambiguity class: "+word->get_string_tags()+L"\n";
-	wcerr<<L"Error: "<<errors;
-      }
-      tags = find_similar_ambiguity_class(tags);
-    } 
+    ambg_class_tags = require_similar_ambiguity_class(tdhmm, tags, *word, debug);
          
-    k = output[tags];  //Ambiguity class the word belongs to
+    k = output[ambg_class_tags];  //Ambiguity class the word belongs to
     
-#ifdef __GNUC__
-    clear_array_double(alpha[nwpend%2], N);    
-    clear_array_vector(best[nwpend%2], N);
-#endif
+    clear_array_double(&alpha[nwpend%2][0], N);    
+    clear_array_vector(&best[nwpend%2][0], N);
     
     //Induction
     for (itag=tags.begin(); itag!=tags.end(); itag++) { //For all tag from the current word
       i=*itag;
       for (jtag=pretags.begin(); jtag!=pretags.end(); jtag++) {	//For all tags from the previous word
 	j=*jtag;
-	x = alpha[1-nwpend%2][j]*(tdhmm->getA())[j][i]*(tdhmm->getB())[i][k];
+	x = alpha[1-nwpend%2][j]*(tdhmm.getA())[j][i]*(tdhmm.getB())[i][k];
 	if (alpha[nwpend%2][i]<=x) {
 	  if (nwpend>1) 
 	    best[nwpend%2][i] = best[1-nwpend%2][j];
@@ -821,9 +731,8 @@ HMM::tagger(FILE *in, FILE *out, bool show_all_good_first) {
     }
     
     //Backtracking
-    if (tags.size()==1) {       
-      tag = *tags.begin();      
-      
+    if (tags.size() == 1) {
+      tag = *tags.begin();
       prob = alpha[nwpend%2][tag];
       
       if (prob>0) 
@@ -833,14 +742,14 @@ HMM::tagger(FILE *in, FILE *out, bool show_all_good_first) {
 	  wcerr<<L"Problem with word '"<<word->get_superficial_form()<<L"' "<<word->get_string_tags()<<L"\n";
       }
       for (unsigned t=0; t<best[nwpend%2][tag].size(); t++) {
-	if (show_all_good_first) {
-	  wstring const &micad = wpend[t].get_all_chosen_tag_first(best[nwpend%2][tag][t], (tdhmm->getTagIndex())[L"TAG_kEOF"]);
-	  fputws_unlocked(micad.c_str(), out); 
+	if (First) {
+	  wstring const &micad = wpend[t].get_all_chosen_tag_first(best[nwpend%2][tag][t], (tdhmm.getTagIndex())[L"TAG_kEOF"]);
+	  fputws_unlocked(micad.c_str(), Output); 
 	} else {
-	  // print out
+	  // print Output
 	  wpend[t].set_show_sf(show_sf);
-	  wstring const &micad = wpend[t].get_lexical_form(best[nwpend%2][tag][t], (tdhmm->getTagIndex())[L"TAG_kEOF"]);
-	  fputws_unlocked(micad.c_str(), out); 
+	  wstring const &micad = wpend[t].get_lexical_form(best[nwpend%2][tag][t], (tdhmm.getTagIndex())[L"TAG_kEOF"]);
+	  fputws_unlocked(micad.c_str(), Output); 
 	}
       }
       
@@ -855,10 +764,13 @@ HMM::tagger(FILE *in, FILE *out, bool show_all_good_first) {
     {
       if(null_flush)
       { 
-        fputwc_unlocked(L'\0', out);
+        fputwc_unlocked(L'\0', Output);
+        tags.clear();
+        tags.insert(eos);
+        alpha[0][eos] = 1;
       }
       
-      fflush(out);
+      fflush(Output);
       morpho_stream.setEndOfFile(false);
     }
     word = morpho_stream.get_next_word();    
@@ -878,9 +790,9 @@ HMM::print_A() {
   int i,j;
     
   cout<<"TRANSITION MATRIX (A)\n------------------------------\n";  
-  for(i=0; i != tdhmm->getN(); i++)
-    for(j=0; j != tdhmm->getN(); j++) {
-      cout<<"A["<<i<<"]["<<j<<"] = "<<(tdhmm->getA())[i][j]<<"\n";
+  for(i=0; i != tdhmm.getN(); i++)
+    for(j=0; j != tdhmm.getN(); j++) {
+      cout<<"A["<<i<<"]["<<j<<"] = "<<(tdhmm.getA())[i][j]<<"\n";
     }    
 }
 
@@ -889,11 +801,11 @@ HMM::print_B() {
   int i,k;  
 
   cout<<"EMISSION MATRIX (B)\n-------------------------------\n";
-  for(i=0; i != tdhmm->getN(); i++)
-    for(k=0; k != tdhmm->getM(); k++) {
-      Collection &output = tdhmm->getOutput();
+  for(i=0; i != tdhmm.getN(); i++)
+    for(k=0; k != tdhmm.getM(); k++) {
+      Collection &output = tdhmm.getOutput();
       if(output[k].find(i)!=output[k].end())
-        cout<<"B["<<i<<"]["<<k<<"] = "<<(tdhmm->getB())[i][k]<<"\n";
+        cout<<"B["<<i<<"]["<<k<<"] = "<<(tdhmm.getB())[i][k]<<"\n";
     }
 }
 
@@ -901,8 +813,8 @@ void HMM::print_ambiguity_classes() {
   set<TTag> ambiguity_class;
   set<TTag>::iterator itag;
   cout<<"AMBIGUITY CLASSES\n-------------------------------\n";
-  for(int i=0; i != tdhmm->getM(); i++) {
-    ambiguity_class = (tdhmm->getOutput())[i];
+  for(int i=0; i != tdhmm.getM(); i++) {
+    ambiguity_class = (tdhmm.getOutput())[i];
     cout <<i<<": ";
     for (itag=ambiguity_class.begin(); itag!=ambiguity_class.end(); itag++) {
       cout << *itag <<" ";
@@ -910,35 +822,3 @@ void HMM::print_ambiguity_classes() {
     cout << "\n";
   }
 }   
-
-set<TTag>
-HMM::find_similar_ambiguity_class(set<TTag> c) {
-  int size_ret = -1;
-  set<TTag> ret=tdhmm->getOpenClass(); //Se devolverá si no encontramos ninguna clase mejor
-  bool skeep_class;
-  Collection &output = tdhmm->getOutput();
-
-  for(int k=0; k<output.size(); k++) {
-    if ((((int)output[k].size())>((int)size_ret)) && (((int)output[k].size())<((int)c.size()))) {
-      skeep_class=false;
-      // Test if output[k] is a subset of class
-      for(set<TTag>::const_iterator it=output[k].begin(); it!=output[k].end(); it++) {
-        if (c.find(*it)==c.end()) { 
-	   skeep_class=true; //output[k] is not a subset of class
-	   break;
-	}
-      }
-      if (!skeep_class) {
-        size_ret = output[k].size();
-	     ret = output[k];
-      }
-    }
-  }
-  return ret;
-}
-
-void
-HMM::setNullFlush(bool nf)
-{
-  null_flush = nf;
-}

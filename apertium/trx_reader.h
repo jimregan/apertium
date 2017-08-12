@@ -12,14 +12,13 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef _TRXREADER_
 #define _TRXREADER_
 
 #include <apertium/transfer_data.h>
+#include <apertium/xml_reader.h>
 #include <lttoolbox/ltstr.h>
 
 #include <libxml/xmlreader.h>
@@ -28,7 +27,7 @@
 
 using namespace std;
 
-class TRXReader
+class TRXReader : public XMLReader
 {
 private:
   struct LemmaTags
@@ -37,22 +36,12 @@ private:
     wstring tags;
   };
 
-  xmlTextReaderPtr reader;  
-
-  int type;
-  wstring name;
-
   multimap<wstring, LemmaTags, Ltstr> cat_items;
   TransferData td;
 
-  wstring attrib(wstring const &name);
-
-  void parseError(wstring const &message);
-  void copy(TRXReader const &o);
   void destroy();
   void clearTagIndex();
   
-  void step();
   void procTransfer();
   void procDefCats();
   void procDefAttrs();
@@ -70,18 +59,17 @@ private:
 
   int insertLemma(int const base, wstring const &lemma);
   int insertTags(int const base, wstring const &tags);
-  
+
+protected:
+  virtual void parse();
+
 public:
   static wstring const ANY_TAG;
   static wstring const ANY_CHAR;
 
 
   TRXReader();
-  ~TRXReader();
-  TRXReader(TRXReader const &o);
-  TRXReader & operator =(TRXReader const &o);
 
-  void read(string const &filename);
   void write(string const &filename);
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Universitat d'Alacant / Universidad de Alicante
+ * Copyright (C) 2005--2015 Universitat d'Alacant / Universidad de Alicante
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/postchunk.h>
 #include <apertium/trx_reader.h>
@@ -34,11 +32,6 @@ using namespace Apertium;
 using namespace std;
 
 void
-Postchunk::copy(Postchunk const &o)
-{
-}
-
-void
 Postchunk::destroy()
 {
   if(me)
@@ -53,7 +46,15 @@ Postchunk::destroy()
   }  
 }
 
-Postchunk::Postchunk()
+Postchunk::Postchunk() :
+word(0),
+blank(0),
+lword(0),
+lblank(0),
+output(0),
+any_char(0),
+any_tag(0),
+nwords(0)
 {
   me = NULL;
   doc = NULL;
@@ -62,27 +63,12 @@ Postchunk::Postchunk()
   inword = false;
   null_flush = false;
   internal_null_flush = false;
+  trace = false;
 }
 
 Postchunk::~Postchunk()
 {
   destroy();
-}
-
-Postchunk::Postchunk(Postchunk const &o)
-{
-  copy(o);
-}
-
-Postchunk &
-Postchunk::operator =(Postchunk const &o)
-{
-  if(this != &o)
-  {
-    destroy();
-    copy(o);
-  }
-  return *this;
 }
 
 void 
@@ -107,10 +93,15 @@ Postchunk::readData(FILE *in)
   me = new MatchExe(t, finals);
  
   // attr_items
+  bool recompile_attrs = Compression::string_read(in) != string(pcre_version());
   for(int i = 0, limit = Compression::multibyte_read(in); i != limit; i++)
   {
     string const cad_k = UtfConverter::toUtf8(Compression::wstring_read(in));
     attr_items[cad_k].read(in);
+    wstring fallback = Compression::wstring_read(in);
+    if(recompile_attrs) {
+      attr_items[cad_k].compile(UtfConverter::toUtf8(fallback));
+    }
   }
 
   // variables
@@ -150,7 +141,7 @@ Postchunk::read(string const &transferfile, string const &datafile)
   FILE *in = fopen(datafile.c_str(), "rb");
   if(!in)
   {
-    cerr << "Error: Could not open file '" << datafile << "'." << endl;
+    wcerr << "Error: Could not open file '" << datafile << "'." << endl;
     exit(EXIT_FAILURE);
   }
   readData(in);
@@ -165,7 +156,7 @@ Postchunk::readPostchunk(string const &in)
   
   if(doc == NULL)
   {
-    cerr << "Error: Could not parse file '" << in << "'." << endl;
+    wcerr << "Error: Could not parse file '" << in << "'." << endl;
     exit(EXIT_FAILURE);
   }
   
@@ -222,9 +213,18 @@ Postchunk::collectMacros(xmlNode *localroot)
 bool
 Postchunk::checkIndex(xmlNode *element, int index, int limit)
 {
-  if(index > limit)
+  if(index > limit) // Note: Unlike transfer/interchunk, we allow index==limit!
   {
-    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) <<L": line " << element->line << endl;
+    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) << L": line " << element->line << L": index > limit" << endl;
+    return false;
+  }
+  if(index < 0) {
+    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) << L": line " << element->line << L": index < 0" << endl;
+    return false;
+  }
+  if(word[index] == 0)
+  {
+    wcerr << L"Error in " << UtfConverter::fromUtf8((char *) doc->URL) << L": line " << element->line << L": Null access at word[index]" << endl;
     return false;
   }
   return true;
@@ -259,12 +259,11 @@ Postchunk::evalString(xmlNode *element)
         return ti.getContent();
         
       case ti_b:
-        if(checkIndex(element, ti.getPos(), lblank))
+        if(ti.getPos() >= 0 && checkIndex(element, ti.getPos(), lblank))
         {
-          if(ti.getPos() >= 0)
-          {
-            return !blank?"":*(blank[ti.getPos()]);
-          }
+          return !blank?"":*(blank[ti.getPos()]);
+        }
+        else {
           return " ";
         }
         break;
@@ -455,7 +454,7 @@ Postchunk::evalString(xmlNode *element)
   
   else
   {
-    cerr << "Error: unexpected rvalue expression '" << element->name << "'" << endl;
+    wcerr << "Error: unexpected rvalue expression '" << element->name << "'" << endl;
     exit(EXIT_FAILURE);
   }
 
@@ -738,6 +737,11 @@ Postchunk::processCallMacro(xmlNode *localroot)
       break;
     }
   }
+  
+  if (npar <= 0)
+  {
+    throw "Postchunk::processCallMacro() assumes npar > 0, but got npar <= 0";
+  }
 
   InterchunkWord **myword = NULL;
   if(npar > 0)
@@ -752,6 +756,7 @@ Postchunk::processCallMacro(xmlNode *localroot)
 
   myword[0] = word[0];
   
+  bool indexesOK = true;
   int idx = 1;
   int lastpos = 0;
   for(xmlNode *i = localroot->children; i != NULL; i = i->next)
@@ -759,6 +764,10 @@ Postchunk::processCallMacro(xmlNode *localroot)
     if(i->type == XML_ELEMENT_NODE)
     {
       int pos = atoi((const char *) i->properties->children->content);
+      if(!checkIndex(localroot, pos, lword)) {
+        indexesOK = false;      // avoid segfaulting on empty chunks, e.g. ^x<x>{}$
+        pos = 1;
+      }
       myword[idx] = word[pos];
       if(blank)
       {
@@ -774,26 +783,25 @@ Postchunk::processCallMacro(xmlNode *localroot)
   swap(myblank, blank);
   swap(npar, lword);
   
-  for(xmlNode *i = macro->children; i != NULL; i = i->next)
-  {
-    if(i->type == XML_ELEMENT_NODE)
+  if(indexesOK) {
+    for(xmlNode *i = macro->children; i != NULL; i = i->next)
     {
-      processInstruction(i);
+      if(i->type == XML_ELEMENT_NODE)
+      {
+        processInstruction(i);
+      }
     }
+  }
+  else {
+    wcerr << "Warning: Not calling macro \"" << n << "\" from line " << localroot->line << " (empty word?)" << endl;
   }
 
   swap(myword, word);
   swap(myblank, blank);
   swap(npar, lword);
 
-  if(myword)
-  {
-    delete[] myword;
-  }
-  if(myblank)
-  {
-    delete[] myblank;
-  }
+  delete[] myword;
+  delete[] myblank;
 }
 
 void
@@ -1538,6 +1546,12 @@ Postchunk::setNullFlush(bool null_flush)
 }
 
 void
+Postchunk::setTrace(bool trace)
+{
+  this->trace = trace;
+}
+
+void
 Postchunk::postchunk_wrapper_null_flush(FILE *in, FILE *out)
 {
   null_flush = false;
@@ -1605,6 +1619,20 @@ Postchunk::postchunk(FILE *in, FILE *out)
     {
       lastrule = rule_map[val-1];      
       last = input_buffer.getPos();
+
+      if(trace)
+      {
+        wcerr << endl << L"apertium-postchunk: Rule " << val << L" ";
+        for (unsigned int ind = 0; ind < tmpword.size(); ind++)
+        {
+          if (ind != 0)
+          {
+            wcerr << L" ";
+          }
+          fputws_unlocked(tmpword[ind]->c_str(), stderr);
+        }
+        wcerr << endl;
+      }
     }
 
     TransferToken &current = readToken(in);
@@ -1635,7 +1663,7 @@ Postchunk::postchunk(FILE *in, FILE *out)
 	break;
 
       default:
-	cerr << "Error: Unknown input token." << endl;
+	wcerr << "Error: Unknown input token." << endl;
 	return;
     }
   }
@@ -1649,7 +1677,7 @@ Postchunk::applyRule()
   splitWordsAndBlanks(chunk, tmpword, tmpblank);
 
   word = new InterchunkWord *[tmpword.size()+1];
-  lword = tmpword.size()+1;
+  lword = tmpword.size();
   word[0] = new InterchunkWord(UtfConverter::toUtf8(wordzero(chunk)));
 
   for(unsigned int i = 1, limit = tmpword.size()+1; i != limit; i++)
@@ -1659,7 +1687,7 @@ Postchunk::applyRule()
       if(limit != 2)
       {
         blank = new string *[limit - 2];
-        lblank = limit - 2;
+        lblank = limit - 3;
       }
       else
       {
@@ -1684,7 +1712,7 @@ Postchunk::applyRule()
     {
       delete word[i];
     }
-    delete word;
+    delete[] word;
   }
   if(blank)
   {
@@ -1692,7 +1720,7 @@ Postchunk::applyRule()
     {
       delete blank[i];
     }
-    delete blank;
+    delete[] blank;
   }
   word = NULL;
   blank = NULL;

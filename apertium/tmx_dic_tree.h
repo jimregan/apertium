@@ -6,6 +6,8 @@
 *                                                                        *
 *  Developed by Daniel Varga.                                            *
 *                                                                        *
+*  From hunalign; for license see ../AUTHORS and ../COPYING.hunalign     *
+*                                                                        *
 *************************************************************************/
 #ifndef __TMXALIGNER_TEIREADER_DICTIONARIES_H
 #define __TMXALIGNER_TEIREADER_DICTIONARIES_H
@@ -104,7 +106,7 @@ DicTree<Atom, Identifier>& DicTree<Atom, Identifier>::add( const Atom& word, con
     if ( ( v->id != 0 ) && ( id != 0 ) )
     {
       if (WarnOnConflict)
-        std::cerr << "warning: conflict in tree" << std::endl;
+        std::wcerr << "warning: conflict in tree" << std::endl;
     }
     if ( id != 0 )
     {
@@ -163,7 +165,7 @@ void SubsetLookup<Atom, Identifier>::add( const Atoms& words, const Identifier& 
   else
   {
     if (DicTree<Atom, Identifier>::WarnOnConflict)
-      std::cerr << "warning: conflict in tree" << std::endl;
+      std::wcerr << "warning: conflict in tree" << std::endl;
   }
 }
 

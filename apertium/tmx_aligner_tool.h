@@ -6,9 +6,11 @@
 *                                                                        *
 *  Developed by Daniel Varga.                                            *
 *                                                                        *
+*  From hunalign; for license see ../AUTHORS and ../COPYING.hunalign     *
+*                                                                        *
 *************************************************************************/
 #ifndef _ALIGNER_TOOL_H_
-#define _ALIGNER_TOOL_C_
+#define _ALIGNER_TOOL_H_
 
 #include <apertium/tmx_alignment.h>
 

@@ -17,6 +17,12 @@ a multiword with inner inflection just after the lemma head). If
 the input is not a multiword, it does not affect the output.
 .SH OPTIONS
 .TP
+.B \-n, \-\-no\-surface\-forms
+assume no surface forms
+.B \-e, \-\-compounds
+treat ~ as compound separator
+.B \-z, \-\-null\-flush
+null-flushing output on
 .B \-h, \-\-help
 Display this help.
 .PP
@@ -24,7 +30,7 @@ Display this help.
 .TP
 You could write the following to show how the expression "trobant-lo a faltar" is analysed: 
 .TP
-echo "trobant-lo a faltar" | apertium-destxt | lt-proc ca-es.automorf.bin |./ca-es.tagger --tagger ca-es | apertium-pretransfer
+echo "trobant-lo a faltar" | apertium-destxt | lt-proc ca-es.automorf.bin |./ca-es.tagger \-\-tagger ca-es | apertium-pretransfer
 .PP
 .SH SEE ALSO
 .I apertium-destxt\fR(1),

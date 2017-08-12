@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef _TSXREADER_
 #define _TSXREADER_
@@ -22,6 +20,7 @@
 #include <apertium/constant_manager.h>
 #include <apertium/tagger_data.h>
 #include <apertium/ttag.h>
+#include <apertium/xml_reader.h>
 #include <lttoolbox/pattern_list.h>
 #include <lttoolbox/ltstr.h>
 
@@ -33,10 +32,9 @@
 
 using namespace std;
 
-class TSXReader
+class TSXReader : public XMLReader
 {
 private:
-  xmlTextReaderPtr reader;  
   set<TTag> *open_class;
   vector<TForbidRule> *forbid_rules;
   map<wstring, TTag, Ltstr> *tag_index;
@@ -47,12 +45,6 @@ private:
   ConstantManager *constants;
   TaggerData tdata;
 
-  int type;
-  wstring name;
-
-  wstring attrib(wstring const &name);
-
-  void parseError(wstring const &message);
   void newTagIndex(wstring const &tag);
   void newDefTag(wstring const &tag);
   void newConstant(wstring const &constant);
@@ -64,19 +56,23 @@ private:
   void procLabelSequence();
   void procEnforce();
   void procPreferences();
-  void copy(TSXReader const &o);
   void destroy();
   void clearTagIndex();
 
-  void step();
+protected:
+  virtual void parse();
+
 public:
+  using XMLReader::read;
   TSXReader();
   ~TSXReader();
+
+  TaggerData & getTaggerData();
+
+private:
+  void copy(TSXReader const &o);
   TSXReader(TSXReader const &o);
   TSXReader & operator =(TSXReader const &o);
-
-  void read(string const &filename);
-  TaggerData & getTaggerData();
 };
 
 #endif

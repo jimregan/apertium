@@ -11,7 +11,7 @@ architecture: \fBhttp://www.apertium.org\fR.
 {n} DIC CRP TSX PROB [\-\-debug|\-d]\fR 
 .PP
 .B apertium-tagger \-\-supervised|\-s 
-{n} DIC CRP TSX PROB HTAG UNTAG [\-\-debug|\-d]\fR 
+{n} DIC [CRP] TSX PROB HTAG UNTAG [\-\-debug|\-d]\fR 
 .PP
 .B apertium-tagger \-\-retrain|\-r 
 {n} CRP PROB [\-\-debug|\-d] \fR
@@ -36,6 +36,7 @@ then performs \fBn\fR iterations of the Baum-Welch training algorithm
 Initializes parameters against a hand-tagged text (supervised) through
 the maximum likelihood estimate method, then performs \fBn\fR
 iterations of the Baum-Welch training algorithm (unsupervised)
+The CRP argument can be ommitted only when n=0.
 .TP
 .B \-r {n}, \-\-retrain {n}
 Retrains the model with \fBn\fR additional Baum-Welch iterations
@@ -49,7 +50,7 @@ Prints the superficial form of the word along side the lexical form
 in the output stream.
 .TP
 .B \-f, \-\-first
-Used in conjuntion with -g (--tagger) makes the tagger
+Used in conjuntion with \-g (\-\-tagger) makes the tagger
 give all lexical forms of each word, with the chosen
 one in the first place (after the lemma)
 .TP
@@ -81,7 +82,7 @@ Hand-tagged text corpus
 .PP
 .B UNTAG       
 Untagged text corpus, morphological analysis of HTAG corpus to use
-both jointly with -s option
+both jointly with \-s option
 .PP
 .B INPUT       
 Input file, stdin by default

@@ -12,12 +12,10 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <cstdlib>
-#include <getopt.h>
+#include "getopt_long.h"
 #include <iostream>
 #include <libgen.h>
 #include <string>
@@ -78,12 +76,9 @@ int main(int argc, char *argv[])
   string translation = "";
 
 
-#if HAVE_GETOPT_LONG
   int option_index=0;
-#endif
 
   while (true) {
-#if HAVE_GETOPT_LONG
     static struct option long_options[] =
     {
       {"percent",      required_argument, 0, 'p'},
@@ -99,9 +94,6 @@ int main(int argc, char *argv[])
     };
 
     int c=getopt_long(argc, argv, "p:e:l:m:d:w:s:t:h", long_options, &option_index);
-#else
-    int c=getopt(argc, argv, "p:e:l:m:d:w:s:t:h");
-#endif
     if (c==-1)
       break;
       

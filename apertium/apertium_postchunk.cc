@@ -12,15 +12,13 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #include <apertium/postchunk.h>
 #include <lttoolbox/lt_locale.h>
 
 #include <cstdlib>
-#include <getopt.h>
+#include "getopt_long.h"
 #include <iostream>
 #include <libgen.h>
 #include <sys/types.h>
@@ -37,13 +35,14 @@ using namespace std;
 
 void message(char *progname)
 {
-  cerr << "USAGE: " << basename(progname) << " [-z] t3x preproc [input [output]]" << endl;
-  cerr << "  t3x        t3x rules file" << endl;
-  cerr << "  preproc    result of preprocess trules file" << endl;
-  cerr << "  input      input file, standard input by default" << endl;
-  cerr << "  output     output file, standard output by default" << endl;
-  cerr << "OPTIONS" <<endl;
-  cerr << "  -z         flush buffer on '\0'" << endl;
+  wcerr << "USAGE: " << basename(progname) << " [-z] t3x preproc [input [output]]" << endl;
+  wcerr << "  t3x        t3x rules file" << endl;
+  wcerr << "  preproc    result of preprocess trules file" << endl;
+  wcerr << "  input      input file, standard input by default" << endl;
+  wcerr << "  output     output file, standard output by default" << endl;
+  wcerr << "OPTIONS" <<endl;
+  wcerr << "  -t         trace (show rule numbers and patterns matched)" << endl;
+  wcerr << "  -z         null-flushing output on '\0'" << endl;
   
   exit(EXIT_FAILURE);
 }
@@ -53,8 +52,8 @@ void testfile(string const &filename)
   struct stat mybuf;
   if(stat(filename.c_str(), &mybuf) == -1)
   {
-    cerr << "Error: can't stat file '";
-    cerr << filename << "'." << endl;
+    wcerr << "Error: can't stat file '";
+    wcerr << filename << "'." << endl;
     exit(EXIT_FAILURE);
   }
 }
@@ -64,8 +63,8 @@ FILE * open_input(string const &filename)
   FILE *input = fopen(filename.c_str(), "r");
   if(!input)
   {
-    cerr << "Error: can't open input file '";
-    cerr << filename.c_str() << "'." << endl;
+    wcerr << "Error: can't open input file '";
+    wcerr << filename.c_str() << "'." << endl;
     exit(EXIT_FAILURE);
   }
   
@@ -77,8 +76,8 @@ FILE * open_output(string const &filename)
   FILE *output = fopen(filename.c_str(), "w");
   if(!output)
   {
-    cerr << "Error: can't open output file '";
-    cerr << filename.c_str() << "'." << endl;
+    wcerr << "Error: can't open output file '";
+    wcerr << filename.c_str() << "'." << endl;
     exit(EXIT_FAILURE);
   }
   return output;
@@ -90,28 +89,27 @@ int main(int argc, char *argv[])
 
   Postchunk p;
   
-#if HAVE_GETOPT_LONG
   int option_index=0;
-#endif
 
   while (true) {
-#if HAVE_GETOPT_LONG
     static struct option long_options[] =
     {
       {"null-flush", no_argument, 0, 'z'},
+      {"trace", no_argument, 0, 't'},
       {"help", no_argument, 0, 'h'},
       {0, 0, 0, 0}
     };
 
-    int c=getopt_long(argc, argv, "zh", long_options, &option_index);
-#else
-    int c=getopt(argc, argv, "zh");
-#endif
+    int c=getopt_long(argc, argv, "zht", long_options, &option_index);
     if (c == -1)
       break;
       
     switch (c)
     {
+      case 't':
+        p.setTrace(true);
+        break;
+ 
       case 'z':
         p.setNullFlush(true);
         break;

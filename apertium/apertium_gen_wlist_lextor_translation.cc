@@ -14,14 +14,12 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <iostream>
 #include <fstream>
-#include <getopt.h>
+#include "getopt_long.h"
 #include <string>
 
 #include <lttoolbox/fst_processor.h>
@@ -49,15 +47,12 @@ void help(char *name) {
 int main(int argc, char* argv[]) {
   int c;
   
-#if HAVE_GETOPT_LONG
   int option_index=0;
-#endif
   string monodic_file="";
   string bildic_file="";
   string wlist_file="";
 
   while (true) {
-#if HAVE_GETOPT_LONG
     static struct option long_options[] =
       {
 	{"mono",    required_argument, 0, 'm'},
@@ -69,9 +64,6 @@ int main(int argc, char* argv[]) {
       };
 
     c=getopt_long(argc, argv, "m:b:w:hv",long_options, &option_index);
-#else
-    c=getopt(argc, argv, "m:b:w:hv");
-#endif
     if (c==-1)
       break;
       
@@ -103,9 +95,7 @@ int main(int argc, char* argv[]) {
 	  <<L"   General Public License for more details.\n"
 	  <<L"\n"
 	  <<L"   You should have received a copy of the GNU General Public License\n"
-	  <<L"   along with this program; if not, write to the Free Software\n"
-	  <<L"   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA\n"
-	  <<L"   02111-1307, USA.\n";
+	  <<L"   along with this program; if not, see <http://www.gnu.org/licenses/>.\n";
       exit(EXIT_SUCCESS);
       break;    
     default:

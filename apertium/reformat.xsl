@@ -13,11 +13,9 @@
  General Public License for more details.
 
  You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- 02111-1307, USA.
+ along with this program; if not, see <http://www.gnu.org/licenses/>.
 -->
-<xsl:stylesheet version="1.0" 
+<xsl:stylesheet version="1.0"
                 xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output method="text" encoding="UTF-8"/>
 
@@ -28,6 +26,7 @@
 #ifndef GENFORMAT
 #include "apertium_config.h"
 #endif
+#include &lt;utf8/utf8.h&gt;
 #include &lt;apertium/unlocked_cstdio.h&gt;
 
 #include &lt;cstdlib&gt;
@@ -38,16 +37,19 @@
 #include &lt;unistd.h&gt;
 #include &lt;lttoolbox/lt_locale.h&gt;
 #include &lt;lttoolbox/ltstr.h&gt;
+#include &lt;apertium/string_to_wostream.h&gt;
 #include &lt;wchar.h&gt;
-#ifdef _MSC_VER
+#ifdef _WIN32
 #include &lt;io.h&gt;
 #include &lt;fcntl.h&gt;
+#define utf8to32 utf8to16
+#define utf32to8 utf16to8
 #endif
 
 using namespace std;
 
 <xsl:for-each select="./rules/replacement-rule">
-  <xsl:variable name="varname" 
+  <xsl:variable name="varname"
 		select="concat(concat(string('S'),position()),string('_substitution'))"/>
   <xsl:value-of select="string('map&lt;wstring, wstring, Ltstr&gt; S')"/>
   <xsl:value-of select="position()"/>
@@ -70,36 +72,17 @@ using namespace std;
   <xsl:value-of select="string('&#xA;}&#xA;')"/>
 </xsl:for-each>
 
-string memconv;  
+string memconv;
 
 wstring convertir(char const *multibyte, int const length)
 {
-  memconv.append(multibyte, length); 
-  int tam = memconv.size();
-  if (memconv == "")
-    return L"";
-  wchar_t *retval = new wchar_t[tam+1];
-  size_t l = mbstowcs(retval, memconv.c_str(), tam);
-
-  if(l == ((size_t) -1))
-  {
-    if(memconv.size() >= 4)
-    {
-      wcerr &lt;&lt; L"Warning: wrong encoding" &lt;&lt; endl;
-    }
-    if (retval != NULL)
-      delete[] retval;
-    return L"";
+  std::wstring rv;
+  memconv.append(multibyte, length);
+  if (utf8::is_valid(memconv.begin(), memconv.end())) {
+  	utf8::utf8to32(memconv.begin(), memconv.end(), std::back_inserter(rv));
+  	memconv.clear();
   }
-  else
-  {
-    memconv = "";
-    retval[l] = 0;
-    wstring ret = retval;
-    if (retval != NULL)
-      delete[] retval;
-    return ret;
-  }
+  return rv;
 }
 
 %}
@@ -117,7 +100,7 @@ wstring convertir(char const *multibyte, int const length)
 "[@"[^]]+"]"&#x9;{
   string filename = yytext;
   filename = filename.substr(2, filename.size()-3);
-  FILE *temp = fopen(filename.c_str(), "r");
+  FILE *temp = fopen(filename.c_str(), "rb");
   wint_t mychar;
 #ifdef _MSC_VER
   _setmode(_fileno(temp), _O_U8TEXT);
@@ -125,7 +108,7 @@ wstring convertir(char const *multibyte, int const length)
 
   if(!temp)
   {
-    cerr &lt;&lt; "ERROR: File '" &lt;&lt; filename &lt;&lt;"' not found." &lt;&lt; endl;
+    wcerr &lt;&lt; "ERROR: File '" &lt;&lt; filename &lt;&lt;"' not found." &lt;&lt; endl;
     exit(EXIT_FAILURE);
   }
   while(static_cast&lt;int&gt;(mychar = fgetwc_unlocked(temp)) != EOF)
@@ -148,12 +131,12 @@ wstring convertir(char const *multibyte, int const length)
   fputws_unlocked(convertir(yytext+1, yyleng-1).c_str(), yyout);
 }
 
- 
+
 
 .|\n&#x9;{
   wstring yytext_conv = convertir(yytext, yyleng);
 <xsl:for-each select="./rules/replacement-rule">
-  <xsl:variable name="varname" 
+  <xsl:variable name="varname"
 		select="concat(concat(string('S'),position()),string('_substitution'))"/>
 
   <xsl:value-of select="string('  ')"/>
@@ -169,7 +152,7 @@ wstring convertir(char const *multibyte, int const length)
   <xsl:value-of select="$varname"/>
   <xsl:value-of select="string('[yytext_conv].c_str(), yyout);')"/>
   <xsl:value-of select="string('&#xA;  }&#xA;')"/>
-</xsl:for-each>   
+</xsl:for-each>
 
 <xsl:if test="not(count(./rules/replacement-rule)=0)">
   <xsl:value-of select="string('  else&#xA;  {&#xA;  ')"/>
@@ -188,9 +171,9 @@ wstring convertir(char const *multibyte, int const length)
 
 void usage(string const &amp;progname)
 {
-  cerr &lt;&lt; "USAGE: " &lt;&lt; progname &lt;&lt; " [input_file [output_file]" &lt;&lt; ']' &lt;&lt; endl;
-  cerr &lt;&lt; "<xsl:value-of select="./@name"/> format processor " &lt;&lt; endl;
-  exit(EXIT_SUCCESS);  
+  wcerr &lt;&lt; "USAGE: " &lt;&lt; progname &lt;&lt; " [input_file [output_file]" &lt;&lt; ']' &lt;&lt; endl;
+  wcerr &lt;&lt; "<xsl:value-of select="./@name"/> format processor " &lt;&lt; endl;
+  exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[])
@@ -201,17 +184,17 @@ int main(int argc, char *argv[])
   {
     usage(argv[0]);
   }
- 
+
   switch(argc)
   {
     case 3:
-      yyout = fopen(argv[2], "w");
+      yyout = fopen(argv[2], "wb");
       if(!yyout)
       {
         usage(argv[0]);
       }
     case 2:
-      yyin = fopen(argv[1], "r");
+      yyin = fopen(argv[1], "rb");
       if(!yyin)
       {
         usage(argv[0]);
@@ -223,7 +206,7 @@ int main(int argc, char *argv[])
 #ifdef _MSC_VER
   _setmode(_fileno(yyin), _O_U8TEXT);
   _setmode(_fileno(yyout), _O_U8TEXT);
-#endif 
+#endif
 
 <xsl:for-each select="./rules/replacement-rule">
   <xsl:value-of select="string('  S')"/>

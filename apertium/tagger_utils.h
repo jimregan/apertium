@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef __TAGGERUTILS_H
 #define __TAGGERUTILS_H
@@ -27,6 +25,9 @@
 #include <vector>
 #include <apertium/ttag.h>
 #include <cstdlib>
+#include <apertium/tagger_data.h>
+#include <apertium/tagger_word.h>
+#include <apertium/morpho_stream.h>
 
 using namespace std;
 
@@ -67,6 +68,42 @@ void clear_array_vector(vector<TTag> v[], int l);
 /** Devuelve el nº de guiones que contiene la cadena pasada como argumento
   */
 int nguiones_fs(wstring const &cadena);
+
+/** Reads the expanded dictionary received as a parameter puts the resulting
+ *  ambiguity classes that the tagger will manage.
+ *  @param fdic the input stream with the expanded dictionary to read
+ *  @param td the tagger data instance to mutate
+ */
+void scan_for_ambg_classes(FILE *fdic, TaggerData &td);
+void scan_for_ambg_classes(Collection &output, MorphoStream &morpho_stream);
+
+void add_neccesary_ambg_classes(TaggerData &td);
+
+void init_ambg_class_freq(TaggerData &td);
+
+void count_ambg_class_freq(FILE *fdic, TaggerData &td);
+void count_ambg_class_freq(Collection &output, vector<unsigned int> &acc,
+                           MorphoStream &morpho_stream);
+
+/** This method returns a known ambiguity class that is a subset of
+*  the one received as a parameter. This is useful when a new
+*  ambiguity class is found because of changes in the morphological
+*  dictionary used by the MT system.
+*  @param c set of tags (ambiguity class)
+*  @return a known ambiguity class
+*/
+set<TTag> & find_similar_ambiguity_class(TaggerData &td, set<TTag> &c);
+
+/** Dies with an error message if the tags aren't in the tagger data */
+void require_ambiguity_class(TaggerData &td, set<TTag> &tags, TaggerWord &word, int nw);
+
+/** As with find_similar_ambiguity_class, but returns tags if it's already fine
+ * & prints a warning if warn */
+set<TTag> & require_similar_ambiguity_class(TaggerData &td, set<TTag> &tags, TaggerWord &word, bool warn);
+set<TTag> & require_similar_ambiguity_class(TaggerData &td, set<TTag> &tags);
+
+/** Just prints a warning if warn */
+void warn_absent_ambiguity_class(TaggerData &td, set<TTag> &tags, TaggerWord &word, bool warn);
 
 wstring trim(wstring s);
 

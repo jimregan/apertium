@@ -1,7 +1,7 @@
 # apertium.m4 - Macros to locate and utilise apertium libraries -*- Autoconf -*-
-# serial 1 (apertium-3.3.0)
+# serial 1 (apertium-3.4.2)
 #
-# Copyright (C) 2013 Universitat d'Alacant / Universidad de Alicante
+# Copyright (C) 2013--2016 Universitat d'Alacant / Universidad de Alicante
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -14,9 +14,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 
 # AP_CHECK_LING([ID], [MONOLINGUAL_PACKAGE])
@@ -106,7 +104,7 @@ modes/%.mode: modes.xml
 apertium_modesdir=\$(prefix)/share/apertium/modes/
 install-modes:
 	mv modes modes.bak
-	apertium-gen-modes modes.xml \$(BASENAME)
+	apertium-gen-modes -f modes.xml \$(prefix)/share/apertium/\$(BASENAME)
 	rm -rf modes
 	mv modes.bak modes
 	test -d \$(DESTDIR)\$(apertium_modesdir) || mkdir \$(DESTDIR)\$(apertium_modesdir)
@@ -121,6 +119,36 @@ install-modes:
 	touch \$[]@
 
 .PRECIOUS: .deps/.d
+
+langs:
+	@fail=; \
+	if \$(am__make_keepgoing); then \
+	  failcom='fail=yes'; \
+	else \
+	  failcom='exit 1'; \
+	fi; \
+	dot_seen=no; \
+	list='\$(AP_SUBDIRS)'; \
+	for subdir in \$\$list; do \
+	  echo "Making \$\$subdir"; \
+	  (\$(am__cd) \$\$subdir && \$(MAKE) \$(AM_MAKEFLAGS) all-am) \
+	  || eval \$\$failcom; \
+	done; \
+	\$(MAKE) \$(AM_MAKEFLAGS) all-am || exit 1; \
+	test -z "\$\$fail"
+.PHONY: langs
+
+
+.deps/%.autobil.prefixes: %.autobil.bin .deps/.d
+	lt-print $< | sed 's/ /@_SPACE_@/g' > .deps/\@S|@*.autobil.att
+	hfst-txt2fst -e ε <  .deps/\@S|@*.autobil.att > .deps/\@S|@*.autobil.hfst
+	hfst-project -p upper .deps/\@S|@*.autobil.hfst > .deps/\@S|@*.autobil.upper                                   # bidix
+	echo ' @<:@ ? - %+ @:>@* ' | hfst-regexp2fst > .deps/\@S|@*.any-nonplus.hfst                                                        # [^+]*
+	hfst-concatenate -1 .deps/\@S|@*.autobil.upper -2 .deps/\@S|@*.any-nonplus.hfst -o .deps/\@S|@*.autobil.nonplussed    # bidix [^+]*
+	echo ' %+ ' | hfst-regexp2fst > .deps/\@S|@*.single-plus.hfst                                                                 # +
+	hfst-concatenate -1 .deps/\@S|@*.single-plus.hfst -2 .deps/\@S|@*.autobil.nonplussed -o .deps/\@S|@*.autobil.postplus # + bidix [^+]*
+	hfst-repeat -f0 -t3 -i .deps/\@S|@*.autobil.postplus -o .deps/\@S|@*.autobil.postplus.0,3                      # (+ bidix [^+]*){0,3} -- gives at most three +
+	hfst-concatenate -1 .deps/\@S|@*.autobil.nonplussed -2 .deps/\@S|@*.autobil.postplus.0,3 -o \@S|@@                 # bidix [^+]* (+ bidix [^+]*){0,3}
 
 EOF
 

@@ -12,9 +12,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 #ifndef _TRANSFER_MULT_
 #define _TRANSFER_MULT_
@@ -67,7 +65,6 @@ private:
   
   OutputType defaultAttrs;
   
-  void copy(TransferMult const &o);
   void destroy();
   void readData(FILE *input);
   void readBil(string const &filename);
@@ -93,8 +90,6 @@ private:
 public:
   TransferMult();
   ~TransferMult();
-  TransferMult(TransferMult const &o);
-  TransferMult & operator =(TransferMult const &o);
   
   void read(string const &datafile, string const &fstfile);
   void transfer(FILE *in, FILE *out);
